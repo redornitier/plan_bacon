@@ -4,7 +4,7 @@ MVP v0.10 para la mesa de **Restaurante El Volante**. React, TypeScript y Vite e
 
 ## Continuar desde GitHub u otro ordenador
 
-La raíz del repositorio es esta carpeta `plan-bacon`. Lee [la guía de dos ordenadores](docs/DOS_ORDENADORES.md) y [el estado actual](docs/ESTADO.md) antes de continuar. `AGENTS.md` contiene las reglas para nuevos chats de Codex.
+Repositorio: [redornitier/plan_bacon](https://github.com/redornitier/plan_bacon), rama `main`. La raíz del repositorio es esta carpeta `plan-bacon`. Lee [la guía de dos ordenadores](docs/DOS_ORDENADORES.md) y [el estado actual](docs/ESTADO.md) antes de continuar. `AGENTS.md` contiene las reglas para nuevos chats de Codex.
 
 Se versionan código, migraciones, semilla, pruebas, documentación, versiones de herramientas y `wrangler.production.example.json`. El ejemplo contiene solo identificadores de los recursos ya publicados, no credenciales. La configuración activa de producción, las sesiones, las bases locales y las copias quedan excluidas. GitHub Actions ejecutará las comprobaciones al subir cambios; el despliegue sigue siendo manual.
 

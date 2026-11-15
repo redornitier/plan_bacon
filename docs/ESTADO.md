@@ -23,14 +23,13 @@ El código usa React/TypeScript/Vite con Cloudflare Workers, D1, R2 Standard y e
 - D1 y R2 de producción creados. Migraciones 0001 y 0002 aplicadas. Se cargaron solo restaurante y perfiles, sin trasladar las muestras locales.
 - HTTPS, HTML, JavaScript, restaurante, cuatro perfiles y catálogo inicialmente vacío comprobados al publicar.
 - Aviso de gasto de 1 USD confirmado por el usuario en su navegador; no es un límite de cargos.
-- Preparación para GitHub verificada el 15 de noviembre de 2026: copia limpia de los 42 archivos versionables, instalación desde el lockfile, migraciones y semilla locales, 15 pruebas aprobadas, tipos y compilación correctos. El repositorio local está preparado en la rama `main`; GitHub Actions aún no se ha ejecutado porque no se ha subido el repositorio. Ver `VERIFICACION.md` para alcance y evidencia.
+- Preparación para GitHub verificada el 15 de noviembre de 2026: copia limpia de los 42 archivos versionables, instalación desde el lockfile, migraciones y semilla locales, 15 pruebas aprobadas, tipos y compilación correctos. Repositorio conectado y publicado en https://github.com/redornitier/plan_bacon, rama `main`. GitHub Actions aprobado para el primer commit `0801e8fb4b7ffe14880e965873fcbdf1f85e5186`: https://github.com/redornitier/plan_bacon/actions/runs/43748858299. El repositorio es público según su configuración actual. Ver `VERIFICACION.md` para alcance y evidencia.
 - No inferir que el catálogo sigue vacío actualmente: el equipo puede haber guardado datos reales desde la publicación.
 
 ## Pendientes
 
 - CA-11 con dos móviles reales: cámara, galería, orientación y recuperación cruzada. Aún no se ha registrado esta comprobación ni una transformación de una foto real en producción.
 - Ensayar una restauración de copia D1 + R2 en un entorno separado.
-- Crear el repositorio privado en GitHub y conectar el remoto cuando el usuario lo solicite. Las comprobaciones automáticas se ejecutarán al subirlo; todavía no se han ejecutado en GitHub.
 - Clonar en el segundo ordenador y comprobar el arranque local. Autorizar Cloudflare allí solo si se necesita publicar o hacer mantenimiento remoto.
 
 ## Qué no se sincroniza con Git

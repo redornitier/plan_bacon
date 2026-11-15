@@ -1,23 +1,18 @@
 # Trabajar en Plan Bacon desde dos ordenadores
 
-La carpeta que se sube a GitHub es `plan-bacon`, que contiene este README, `src`, `worker` y `package.json`. No subir la carpeta superior del proyecto de ChatGPT, su espejo de fuentes ni el ZIP antiguo. Usar un repositorio privado.
+La carpeta que se sube a GitHub es `plan-bacon`, que contiene este README, `src`, `worker` y `package.json`. No subir la carpeta superior del proyecto de ChatGPT, su espejo de fuentes ni el ZIP antiguo.
 
-## Primera subida desde este ordenador
+## Repositorio conectado
 
-El repositorio local usa la rama `main`. Antes de conectar GitHub:
+- URL: https://github.com/redornitier/plan_bacon
+- Remoto SSH: `git@github.com:redornitier/plan_bacon.git`
+- Rama compartida: `main`.
+- Primera subida completada el 15 de noviembre de 2026. Las comprobaciones automáticas del código inicial han pasado en GitHub.
+- El repositorio es público según su configuración actual. Las credenciales, las sesiones y los datos locales están excluidos de Git.
 
-1. Crear en GitHub un repositorio privado vacío llamado `plan-bacon`, sin añadir README, licencia ni gitignore porque ya existen aquí.
-2. Autenticarse con GitHub en este ordenador mediante GitHub Desktop, SSH o el mecanismo habitual de Git. No usar la contraseña de la cuenta como token ni guardarla en la URL del remoto.
-3. Copiar la URL del repositorio y ejecutar desde esta carpeta:
+El remoto `origin` ya está configurado en este ordenador. En el segundo, la clonación configura su propio `origin`; no hay que crear otro repositorio. Cada ordenador debe autorizarse por separado en GitHub. No copiar la clave privada entre equipos.
 
-   ```sh
-   git remote add origin URL_DEL_REPOSITORIO
-   git push -u origin main
-   ```
-
-   `URL_DEL_REPOSITORIO` es un marcador: sustituirlo por la URL real que muestra GitHub. Revisar antes `git status`, `git log -1` y `git remote -v`. Si hay archivos modificados desde el primer commit, revisarlos y guardarlos en un commit antes de subirlos.
-
-GitHub Actions comprobará tipos, pruebas y compilación. El flujo no publica en Cloudflare y no necesita credenciales de producción.
+GitHub Actions comprueba tipos, pruebas y compilación. El flujo no publica en Cloudflare y no necesita credenciales de producción.
 
 ## Preparar el segundo ordenador
 
@@ -25,7 +20,7 @@ GitHub Actions comprobará tipos, pruebas y compilación. El flujo no publica en
 2. Clonar el repositorio privado, entrar en la carpeta y arrancar:
 
    ```sh
-   git clone URL_DEL_REPOSITORIO
+   git clone git@github.com:redornitier/plan_bacon.git plan-bacon
    cd plan-bacon
    pnpm install --frozen-lockfile
    pnpm setup
