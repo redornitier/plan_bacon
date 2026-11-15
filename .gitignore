@@ -1,0 +1,36 @@
+# Dependencies and generated output
+node_modules/
+dist/
+.vite/
+.pnpm-store/
+coverage/
+*.tsbuildinfo
+
+# Local Cloudflare storage, authentication and configuration
+.wrangler/
+.dev.vars*
+.env*
+!.env.example
+wrangler.production.json
+.wrangler-config/
+
+# Database exports, photos and local test artifacts
+backups/
+test-output/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.sql.gz
+*.zip
+
+# Keys and machine-specific files
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
