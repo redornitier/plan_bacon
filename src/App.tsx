@@ -5,7 +5,7 @@ import { RatingSlider } from './RatingSlider';
 import { charLength, cleanName, filterAndSort, MAX_PHOTO_BYTES, normalizeName, PHOTO_TYPES, photoUrl, sortOpinions } from '../shared/domain';
 import type { Config, Detail, Dish, Opinion, Profile } from '../shared/domain';
 
-function Icon({ name, size = 20 }: { name: 'arrow' | 'plus' | 'search' | 'camera' | 'image' | 'sort' | 'back' | 'check'; size?: number }) {
+function Icon({ name, size = 20 }: { name: 'arrow' | 'plus' | 'search' | 'camera' | 'image' | 'sort' | 'back' | 'check' | 'star'; size?: number }) {
   const paths = {
     arrow: <path d="m9 5 7 7-7 7M4 12h12" />,
     plus: <path d="M12 5v14M5 12h14" />,
@@ -15,6 +15,7 @@ function Icon({ name, size = 20 }: { name: 'arrow' | 'plus' | 'search' | 'camera
     sort: <path d="M4 6h16M4 12h11M4 18h6"/>,
     back: <path d="m10 5-7 7 7 7M3 12h17"/>,
     check: <path d="m5 12 4 4L19 6"/>,
+    star: <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z"/>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -70,12 +71,13 @@ export default function App() {
   const changeProfile = () => { setChoosing(true); config.retry(); go('/'); };
   const showChooser = choosing || !profile;
   const dishId = route.match(/^\/platos\/([\w-]+)$/)?.[1];
+  const showCatalog = !config.loading && !config.error && !showChooser && route !== '/nuevo' && !dishId;
   return <>
     <a className="skip-link" href="#main">Saltar al contenido</a>
-    <header className="site-header"><a href="#/" className="brand" aria-label="Plan Bacon, inicio"><span className="brand-mark">b.</span><span>plan bacon<span className="brand-caption">LAS OPINIONES DE NUESTRA MESA</span></span></a>
+    <header className={`site-header${showCatalog ? ' catalog-header' : ''}`}><a href="#/" className="brand" aria-label="Plan Bacon, inicio"><span className="brand-mark">b.</span><span>plan bacon<span className="brand-caption">LAS OPINIONES DE NUESTRA MESA</span></span></a>
       {!showChooser && <div className="profile-control"><span className="avatar">{profile.nombre_visible[0]}</span><span><strong>{profile.nombre_visible}</strong><button className="text-button" onClick={changeProfile}>Cambiar perfil</button></span></div>}
     </header>
-    <main id="main" tabIndex={-1} ref={heading}>
+    <main id="main" className={showCatalog ? 'catalog-main' : undefined} tabIndex={-1} ref={heading}>
       {config.loading ? <p className="loading" role="status">Preparando la mesa…</p> : config.error ? <ErrorBox message={config.error} retry={config.retry}/> : config.data && (showChooser ?
         <ProfileChooser profiles={config.data.perfiles} selected={profileId} onChoose={choose}/> :
         route === '/nuevo' ? <NewDish profile={profile!} initialName={query} onCreated={() => { setQuery(''); setNotice('Plato añadido. Ya puedes valorar tu ración.'); }}/> :
@@ -99,21 +101,22 @@ function ProfileChooser({ profiles, selected, onChoose }: { profiles: Profile[];
   </section>;
 }
 
-function Catalog({ restaurant, query, setQuery, sort, setSort }: { restaurant: string; query: string; setQuery: (s: string) => void; sort: string; setSort: (s: string) => void }) {
+export function Catalog({ restaurant, query, setQuery, sort, setSort }: { restaurant: string; query: string; setQuery: (s: string) => void; sort: string; setSort: (s: string) => void }) {
   const list = useLoad<{ platos: Dish[] }>('/api/platos');
-  const [ordering, setOrdering] = useState(false);
   const dishes = filterAndSort(list.data?.platos ?? [], query, sort);
-  return <>
-    <section className="catalog-heading"><span className="eyebrow">NUESTRO RESTAURANTE DE SIEMPRE</span><div className="title-row"><h1>{restaurant.replace(/^Restaurante /, '')}<span className="title-dot">.</span></h1><span className="restaurant-label">RESTAURANTE<br/>Y BUENA COMPAÑÍA</span></div><p>Lo que pedimos. Lo que pensamos. Lo que repetiríamos.</p></section>
-    <div className="catalog-tools"><div className="search-wrap"><Icon name="search"/><label className="sr-only" htmlFor="search">Buscar plato</label><input id="search" type="search" placeholder="¿Qué te apetece pedir?" value={query} onChange={e => setQuery(e.target.value)}/></div><button className="secondary order-button" aria-expanded={ordering} aria-controls="sort-options" onClick={() => setOrdering(!ordering)}><Icon name="sort"/>Ordenar</button></div>
-    {ordering && <fieldset className="sort-options" id="sort-options"><legend>Orden de los platos</legend>{[['name', 'Por nombre'], ['rating', 'Por valoración']].map(([value, label]) => <label key={value}><input type="radio" name="sort" checked={sort === value} onChange={() => setSort(value)}/>{label}</label>)}</fieldset>}
-    <div className="section-line"><span>{dishes.length} {dishes.length === 1 ? 'plato' : 'platos'}<span className="muted"> · {sort === 'rating' ? 'Por valoración' : 'De la A a la Z'}</span></span><a className="text-button" href="#/nuevo"><Icon name="plus"/>Añadir plato</a></div>
-    {list.loading ? <p className="loading" role="status">Buscando los platos de la mesa…</p> : list.error ? <ErrorBox message={list.error} retry={list.retry}/> : !list.data?.platos.length ? <Empty title="La mesa está por estrenar" action={<a className="primary" href="#/nuevo"><Icon name="plus"/>Añadir el primer plato</a>}>Añade un plato de El Volante y guarda la primera opinión del grupo.</Empty> : !dishes.length ? <Empty title="Todavía no encontramos ese plato" action={<a className="primary" href="#/nuevo"><Icon name="plus"/>Añadir plato</a>}>Prueba con otro nombre o añade «{query}» a nuestra mesa.</Empty> : <div className="dish-list">{dishes.map(d => <a className="dish-card" href={`#/platos/${d.id}`} key={d.id}>
-      {d.foto_clave ? <img src={photoUrl(d.foto_clave, true)} alt={`Ración de ${d.nombre}`} loading="lazy"/> : <div className="dish-placeholder"><Plate small/></div>}
-      <div className="dish-copy"><h2>{d.nombre}</h2>{d.media === null ? <span className="unrated">Sin valorar <span>· ¿Lo has probado?</span></span> : <div className="dish-rating"><span className="rating-number">{score(d.media)}<small>/100</small></span><span>{d.total} {d.total === 1 ? 'valoración' : 'valoraciones'}</span></div>}</div><span className="card-arrow"><Icon name="arrow"/></span>
-    </a>)}</div>}
-    <aside className="table-note"><span className="note-line"/><p>Una foto de tu plato.<br/><strong>Una pista para la próxima vez.</strong></p><span className="note-line"/></aside>
-  </>;
+  return <section className="catalog" aria-label="Platos del restaurante">
+    <div className="catalog-heading"><span className="eyebrow">NUESTRA MESA DE SIEMPRE</span><div className="catalog-title-row"><h1>{restaurant.replace(/^Restaurante /, '')}<span className="title-dot">.</span></h1><a className="catalog-add" href="#/nuevo" aria-label="Añadir plato"><Icon name="plus"/><span>Añadir plato</span></a></div><p>Lo que probamos. Lo que repetimos.</p></div>
+    <div className="catalog-search"><Icon name="search"/><label className="sr-only" htmlFor="search">Buscar plato</label><input id="search" type="search" placeholder="¿Qué te apetece pedir?" value={query} onChange={e => setQuery(e.target.value)}/></div>
+    <div className="catalog-toolbar"><span className="catalog-count" role="status">{!list.loading && !list.error && `${dishes.length} ${dishes.length === 1 ? 'plato' : 'platos'}`}</span><div className="catalog-order"><Icon name="sort" size={16}/><label className="sr-only" htmlFor="catalog-sort">Ordenar platos</label><select id="catalog-sort" value={sort} onChange={e => setSort(e.target.value)}><option value="name">De la A a la Z</option><option value="rating">Mejor valorados</option><option value="reviews">Más opiniones</option></select></div></div>
+    {list.loading ? <p className="loading" role="status">Buscando los platos de la mesa…</p> : list.error ? <ErrorBox message={list.error} retry={list.retry}/> : !list.data?.platos.length ? <Empty title="La mesa está por estrenar" action={<a className="primary" href="#/nuevo"><Icon name="plus"/>Añadir el primer plato</a>}>Añade un plato de El Volante y guarda la primera opinión del grupo.</Empty> : !dishes.length ? <Empty title="Todavía no encontramos ese plato" action={<a className="primary" href="#/nuevo"><Icon name="plus"/>Añadir plato</a>}>Prueba con otro nombre o añade «{query}» a nuestra mesa.</Empty> : <div className="catalog-grid">{dishes.map(d => {
+      const outstanding = d.media !== null && d.media >= 90;
+      return <a className={`catalog-card${outstanding ? ' is-outstanding' : ''}`} href={`#/platos/${d.id}`} key={d.id}>
+        <div className="catalog-photo">{d.foto_clave ? <img src={photoUrl(d.foto_clave, true)} alt={`Ración de ${d.nombre}`} width={400} height={400} loading="lazy" decoding="async"/> : <div className="catalog-placeholder"><Plate small/><span>Foto pendiente</span></div>}{outstanding && <span className="catalog-badge"><Icon name="star" size={13}/>De lo mejor</span>}</div>
+        <div className="catalog-card-copy"><h2>{d.nombre}</h2>{d.media === null ? <span className="catalog-unrated">Sin valorar</span> : <div className="catalog-rating"><span className="catalog-score"><span className="sr-only">Media: </span>{score(d.media)}<span className="sr-only"> de 100</span></span><span className="catalog-reviews">{d.total} {d.total === 1 ? 'opinión' : 'opiniones'}</span></div>}</div>
+      </a>;
+    })}</div>}
+    <aside className="catalog-note"><span/>Buena mesa. Buena memoria.<span/></aside>
+  </section>;
 }
 
 function NewDish({ profile, initialName, onCreated }: { profile: Profile; initialName: string; onCreated: () => void }) {

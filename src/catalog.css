@@ -1,0 +1,101 @@
+.catalog-heading .eyebrow {
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.catalog-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.catalog-title-row h1 { min-width: 0; }
+
+.catalog-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 50px;
+  color: var(--rust);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.catalog-add:hover { background: #eee7d9; }
+.catalog .catalog-heading p { margin-top: 9px; max-width: none; }
+
+.catalog-search { position: relative; margin-top: 24px; }
+.catalog-search > svg { position: absolute; left: 14px; top: 15px; width: 18px; color: var(--muted); }
+.catalog-search input { height: 50px; padding-left: 41px; border-color: var(--line); border-radius: 12px; }
+
+.catalog-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 60px; }
+.catalog-count { font-size: 12px; color: var(--muted); }
+.catalog-order { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.catalog-order select { width: auto; max-width: 175px; min-height: 44px; padding: 8px 2px; background: transparent; border: 0; font-size: 14px; }
+
+.catalog-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 25px 16px; }
+.catalog-card { display: flex; flex-direction: column; min-width: 0; border-radius: 13px; }
+.catalog-photo { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 13px; background: #eee7d9; isolation: isolate; }
+.catalog-photo > img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
+.catalog-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 100%; padding: 12px; color: var(--muted); font-size: 11px; text-align: center; }
+.catalog-placeholder .plate { max-width: 75%; height: auto; }
+.catalog-card-copy { display: flex; flex-direction: column; flex: 1; padding: 11px 1px 0; }
+.catalog-card h2 { font-family: 'Playfair Display', Georgia, serif; font-size: 20px; font-weight: 600; line-height: 1.3; letter-spacing: -.2px; overflow-wrap: anywhere; flex: 1; }
+.catalog-rating { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-top: 10px; }
+.catalog-score { color: var(--green); font-size: 22px; line-height: 1.2; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.7px; }
+.catalog-reviews { border-left: 1px solid var(--line); padding-left: 8px; font-size: 12px; color: var(--muted); }
+.catalog-unrated { color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+/* The distinction follows the real average, including exactly 90. */
+.catalog-badge { position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 5px; max-width: calc(100% - 16px); padding: 6px 8px; border: 1px solid #dcc183; border-radius: 50px; background: #fff2d4; color: #775113; font-size: 11px; font-weight: 600; line-height: 1.2; box-shadow: 0 2px 8px #3526001a; }
+.catalog-badge svg { fill: #d4ac50; }
+.catalog-card.is-outstanding .catalog-photo::after { content: ''; position: absolute; inset: 0; border: 1px solid #be913d99; border-radius: inherit; pointer-events: none; }
+.catalog-card.is-outstanding .catalog-score { color: #88601b; }
+
+.catalog-note { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 36px 0 12px; color: var(--muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; text-align: center; }
+.catalog-note > span { flex: 1; max-width: 50px; height: 1px; background: var(--line); }
+
+@media (hover: hover) {
+  .catalog-card:hover .catalog-photo > img { transform: scale(1.045); }
+  .catalog-card:hover h2 { color: var(--rust); }
+}
+
+@media (min-width: 760px) {
+  .catalog-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 20px; }
+}
+
+@media (max-width: 600px) {
+  .catalog-header { padding: 16px; }
+  .catalog-header .brand-caption { display: none; }
+  .catalog-header .brand { font-family: 'Playfair Display', Georgia, serif; font-size: 20px; font-weight: 600; }
+  .catalog-header .brand-mark { width: 32px; height: 32px; font-size: 27px; }
+  .catalog-header .profile-control .text-button { min-height: 32px; }
+  .catalog-main { padding: 22px 16px 12px; }
+  .catalog-heading h1 { font-size: 39px; }
+  .catalog-heading .eyebrow { font-size: 10px; letter-spacing: 1.6px; margin-bottom: 7px; }
+  .catalog .catalog-heading p { font-size: 13px; }
+  .catalog-add { width: 44px; padding: 8px; }
+  .catalog-add > span { display: none; }
+  .catalog-search { margin-top: 20px; }
+  .catalog-search input { height: 46px; }
+  .catalog-search > svg { top: 13px; }
+  .catalog-toolbar { min-height: 58px; }
+  .catalog-order select { font-size: 13px; }
+  .catalog-grid { gap: 22px 12px; }
+  .catalog-card h2 { font-size: 16px; min-height: 42px; }
+  .catalog-rating { gap: 4px 6px; margin-top: 8px; }
+  .catalog-score { font-size: 18px; }
+  .catalog-reviews { padding-left: 6px; font-size: 11px; }
+  .catalog-note { font-size: 9px; letter-spacing: .9px; gap: 9px; }
+}
+
+@media (max-width: 360px) {
+  .catalog-main { padding-left: 12px; padding-right: 12px; }
+  .catalog-grid { column-gap: 10px; }
+}

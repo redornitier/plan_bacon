@@ -50,6 +50,7 @@ Para comprobar la compilación servida, parar `pnpm dev` y ejecutar `pnpm previe
 
 - Perfiles sin autenticación; cualquiera con acceso a la web puede elegir cualquiera y editar su opinión. No se presenta el selector como una protección de identidad.
 - Catálogo, búsqueda sin mayúsculas ni acentos de vocales, orden español A–Z y por media; los empates van por nombre y los no valorados al final. El filtro se conserva al ordenar y al volver de una ficha.
+- Catálogo con dos tarjetas por fila en móvil y tres desde 760 px, foto cuadrada protagonista, nombres completos y nota sin sufijo visual. Los platos con media de 90 o más llevan «De lo mejor» y un acento dorado. También se puede ordenar por número de opiniones, con empates por media y nombre.
 - Alta con sugerencias y resolución de altas simultáneas: un conflicto devuelve HTTP 409 y la ficha existente.
 - Varias opiniones por perfil y plato, cada una con foto obligatoria, deslizador 1–100 con selección explícita, comentario opcional de hasta 500 caracteres, edición y reintento.
 - Slider protagonista con plato, salsa, vapor y brasas; cinco repertorios de frases aleatorias que se mantienen durante cada gesto. Teclado, movimiento reducido y alternativa sin efectos gráficos. Una nueva opinión sigue empezando sin nota elegida.

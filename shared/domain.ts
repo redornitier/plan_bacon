@@ -31,7 +31,8 @@ const collator = new Intl.Collator('es', { sensitivity: 'base' });
 export function filterAndSort(dishes: Dish[], query: string, sort: string): Dish[] {
   const normalized = normalizeName(query);
   return dishes.filter(d => d.nombre_normalizado.includes(normalized)).sort((a, b) => {
-    if (sort === 'rating') {
+    if (sort === 'reviews' && a.total !== b.total) return b.total - a.total;
+    if (sort === 'rating' || sort === 'reviews') {
       if (a.media === null && b.media !== null) return 1;
       if (a.media !== null && b.media === null) return -1;
       if (a.media !== null && b.media !== null && a.media !== b.media) return b.media - a.media;
