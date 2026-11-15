@@ -48,8 +48,11 @@ export function RatingSlider({ dishName, value, onChange, invalid, disabled }: P
       <div className="bacon-dish">{dishName}</div>
       <label className="bacon-title" htmlFor="rating">1. ¿Qué tal estaba?</label>
       <div className="bacon-stage">
-        <div className="bacon-aura" aria-hidden="true"/>
-        <div className="bacon-score"><div className="bacon-plate" aria-hidden="true"/><output htmlFor="rating" aria-live="off">{value ?? '—'}</output><span>/100</span></div>
+        <div className="bacon-score">
+          <div className="bacon-aura" aria-hidden="true"/>
+          <div className="bacon-plate" aria-hidden="true"/>
+          <output htmlFor="rating" aria-live="off">{value ?? '—'}</output>
+        </div>
         <div className="bacon-reaction"><span className="bacon-phrase">{copy.phrase}</span></div>
         <div className="bacon-caption">{copy.caption}</div>
       </div>

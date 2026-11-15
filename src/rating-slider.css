@@ -70,42 +70,41 @@
 
 .rating-slider .bacon-aura {
   position: absolute;
-  inset: 0 -20px -10px;
+  inset: -55px -10px;
   z-index: -1;
-  background: radial-gradient(ellipse at 50% 38%,hsl(var(--b-hue) 95% 55% / calc(var(--b-glow) * var(--b-glow-strength))),transparent 68%);
+  pointer-events: none;
+  /* Reach full transparency at every edge, including above the score. */
+  background: radial-gradient(ellipse closest-side at center,
+    hsl(var(--b-hue) 95% 55% / calc(var(--b-glow) * var(--b-glow-strength))) 0%,
+    hsl(var(--b-hue) 95% 55% / calc(var(--b-glow) * .55)) 52%,
+    transparent 100%);
   transition: opacity .2s;
 }
 
 .rating-slider .bacon-score {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  height: 174px;
+  display: grid;
+  place-items: center;
+  height: 184px;
   position: relative;
   margin-bottom: 12px;
 }
 
 .rating-slider output {
-  font: 400 100px/1.1 Georgia,serif;
-  letter-spacing: -8px;
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  width: 144px;
+  height: 124px;
+  font: 500 76px/1 'DM Sans',system-ui,sans-serif;
+  letter-spacing: -.03em;
+  text-align: center;
   color: var(--b-rust);
   font-variant-numeric: lining-nums tabular-nums;
-  min-width: 1ch;
-  padding-right: 5px;
+  /* Compensate the last glyph's tracking without shifting different digit counts. */
+  padding: 0 0 0 .03em;
   position: relative;
   z-index: 1;
-  font-size: 94px;
   text-shadow: 0 2px 18px #e2a55718;
-}
-
-.rating-slider .bacon-score>span {
-  color: var(--b-muted);
-  font-size: 14px;
-  letter-spacing: -.5px;
-  align-self: center;
-  margin-top: 45px;
-  z-index: 1;
 }
 
 .rating-slider .bacon-reaction {
@@ -291,9 +290,10 @@
 }
 
 .rating-slider .bacon-plate {
-  position: absolute;
-  width: 190px;
-  height: 164px;
+  grid-area: 1 / 1;
+  position: relative;
+  width: 176px;
+  height: 176px;
   border-radius: 50%;
   background: var(--b-plate);
   border: 1px solid var(--b-plate-rim);

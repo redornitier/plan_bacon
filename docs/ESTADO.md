@@ -23,6 +23,7 @@ El código usa React/TypeScript/Vite con Cloudflare Workers, D1, R2 Standard y e
 
 - Publicación inicial: 11 de noviembre de 2026; versión Cloudflare `479f6912-d791-4033-8e17-fdf803f43308`.
 - Slider de cocina publicado el 15 de noviembre de 2026; versión Cloudflare `c71af5d8-aa4e-4b37-817b-69f0d9f8a384`. Sin migraciones ni cambios de datos.
+- Ajuste del halo y centrado de la nota publicado el mismo día; versión Cloudflare `6a59b77f-2223-400c-9945-95888267db66`.
 - D1 y R2 de producción creados. Migraciones 0001 y 0002 aplicadas. Se cargaron solo restaurante y perfiles, sin trasladar las muestras locales.
 - HTTPS, HTML, JavaScript, restaurante, cuatro perfiles y catálogo inicialmente vacío comprobados al publicar.
 - Aviso de gasto de 1 USD confirmado por el usuario en su navegador; no es un límite de cargos.
@@ -41,6 +42,7 @@ El código usa React/TypeScript/Vite con Cloudflare Workers, D1, R2 Standard y e
 - `pnpm check`, `pnpm test` (19 aprobadas), `pnpm build` y `pnpm deploy:dry` correctos. Las pruebas nuevas cubren cambio de repertorio por gesto, coherencia de sus frases, selección explícita por teclado, bloqueo durante guardado, movimiento reducido, alternativa sin canvas y limpieza de animaciones.
 - Navegador local: nueva valoración sin nota, selección de 100 con teclado, efectos cargados sin errores, cancelación y edición de una opinión de 82 conservando su foto. Sin desbordamiento horizontal a 320/360 px. El guardado y los reintentos siguen cubiertos por las pruebas de integración y formulario; no se añadieron opiniones en producción para probar.
 - Compilación final y web publicada revisadas en navegador: inicio sin nota, teclado hasta 100, plato decorativo y colores correctos. Se usa la paleta clara de la aplicación; se evitó `light-dark()` porque su transformación en la compilación combinaba incorrectamente valores de variables CSS. La ficha de producción consultada conserva sus dos opiniones y su media 90,5.
+- Refinamiento visual posterior: halo centrado en el plato, transparente en todos sus bordes para evitar el corte bajo la pregunta. Plato circular de 176 px, número en DM Sans con cifras tabulares y centro compartido mediante grid; eliminado el sufijo visual `/100` del plato. La escala sigue indicada en el slider, la ayuda y su descripción accesible. Comprobado en la compilación a 320/360 px con 1, 87 y 100; tipos, 19 pruebas y compilación correctos.
 
 ## Qué no se sincroniza con Git
 
