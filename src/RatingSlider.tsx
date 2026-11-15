@@ -9,9 +9,10 @@ interface Props {
   onChange: (value: number) => void;
   invalid: boolean;
   disabled: boolean;
+  dedicated?: boolean;
 }
 
-export function RatingSlider({ dishName, value, onChange, invalid, disabled }: Props) {
+export function RatingSlider({ dishName, value, onChange, invalid, disabled, dedicated = false }: Props) {
   const [repertoire, setRepertoire] = useState(() => nextRepertoire());
   const card = useRef<HTMLDivElement>(null);
   const effects = useRef<ReturnType<typeof createRatingEffects> | null>(null);
@@ -45,8 +46,8 @@ export function RatingSlider({ dishName, value, onChange, invalid, disabled }: P
     <div className="bacon-rating" ref={card} data-chosen={value !== null} data-perfect={value === 100}
       style={{ '--b-pos': `calc(20px + (100% - 40px) * ${fraction})`, '--b-glow': value === null ? '.04' : String(.07 + fraction * .3), '--b-hue': String(34 - fraction * 18) } as CSSProperties}>
       <canvas className="bacon-cooking" aria-hidden="true"/>
-      <div className="bacon-dish">{dishName}</div>
-      <label className="bacon-title" htmlFor="rating">1. ¿Qué tal estaba?</label>
+      {!dedicated && <div className="bacon-dish">{dishName}</div>}
+      <label className="bacon-title" htmlFor="rating">{dedicated ? '¿Qué tal estaba?' : '1. ¿Qué tal estaba?'}</label>
       <div className="bacon-stage">
         <div className="bacon-score">
           <div className="bacon-aura" aria-hidden="true"/>

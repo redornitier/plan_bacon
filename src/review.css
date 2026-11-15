@@ -1,0 +1,57 @@
+/* Dedicated review screen. The existing cooking slider and its effects stay intact. */
+main.review-main { max-width: 540px; padding: 0 24px 28px; min-height: 100svh; }
+.review-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); padding: 12px 0; }
+.review-nav .text-button { min-height: 44px; font-size: 13px; font-weight: 500; }
+.review-profile { display: flex; align-items: center; gap: 7px; font-size: 12px; flex-shrink: 0; }
+.review-profile .avatar { width: 28px; height: 28px; font-size: 12px; }
+.review-page-heading { padding-top: 24px; }
+.review-page-heading .eyebrow { color: var(--muted); font-weight: 500; font-size: 11px; letter-spacing: 1.5px; margin-bottom: 7px; }
+.review-page-heading h1 { font-size: 32px; line-height: 1.2; letter-spacing: -.8px; }
+.review-form.dedicated-review { border: 0; background: transparent; padding: 0; margin: 0; border-radius: 0; }
+.draft-restored { display: flex; align-items: center; gap: 8px; background: #e8eddf; color: var(--green); padding: 11px 13px; border-radius: 8px; font-size: 12px; margin-top: 17px; }
+.dedicated-review .rating-slider { padding: 23px 0 20px; }
+.dedicated-review .bacon-rating { --b-paper: var(--paper); padding: 0; background: transparent; border: 0; box-shadow: none; border-radius: 0; overflow: visible; max-width: none; }
+.dedicated-review .bacon-title { font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 500; letter-spacing: 0; margin: 0; }
+.dedicated-review .bacon-stage { padding: 16px 0 6px; }
+.dedicated-review .bacon-score { height: 184px; margin-bottom: 4px; }
+.dedicated-review .bacon-reaction { min-height: 64px; }
+.dedicated-review .bacon-phrase { font-family: 'Playfair Display', Georgia, serif; font-size: 26px; }
+.dedicated-review .bacon-caption { min-height: 36px; margin-top: 2px; }
+.dedicated-review .bacon-endpoints { margin-top: 3px; }
+.dedicated-review .bacon-footer { border: 0; margin: 0; padding: 6px 0 0; min-height: 26px; }
+.dedicated-review .bacon-aura { inset: -45px -4px; }
+.review-photo-section, .review-comment-section { border-top: 1px solid var(--line); padding: 19px 0; }
+.review-field-title { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 15px; font-weight: 500; line-height: 1.5; margin: 0 0 11px; }
+.review-field-title span { font-size: 11px; color: var(--muted); font-weight: 400; }
+.dedicated-review .photo-actions { gap: 10px; }
+.dedicated-review .file-button { min-height: 46px; border-radius: 9px; background: #fffdf8; font-size: 13px; padding: 10px 8px; gap: 7px; }
+.dedicated-review .photo-preview { display: flex; gap: 12px; align-items: center; margin: 0 0 12px; }
+.dedicated-review .photo-preview img { width: 76px; height: 76px; object-fit: cover; flex-shrink: 0; }
+.dedicated-review .photo-preview span { font-size: 12px; margin: 0; }
+.dedicated-review .photo-preview .text-button { font-size: 12px; min-height: 44px; }
+.dedicated-review .hint { font-size: 11px; margin: 8px 0 0; }
+.dedicated-review textarea { min-height: 82px; border-color: var(--line); border-radius: 9px; padding: 12px; line-height: 1.5; }
+.review-comment-count { font-size: 11px; color: var(--muted); text-align: right; margin-top: 5px; }
+.draft-status { text-align: center; color: var(--green); font-size: 11px; line-height: 1.6; margin: 0 0 10px; min-height: 18px; }
+.dedicated-review .primary.wide { margin: 0; border-radius: 9px; }
+.draft-card { margin: 24px 0; padding: 20px; border: 1px solid var(--line); background: #fffdf8; border-radius: 13px; }
+.draft-card h2 { font-family: 'Playfair Display', Georgia, serif; font-weight: 500; font-size: 24px; }
+.draft-card p { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.draft-card .hint { font-size: 11px; margin: 5px 0 15px; }
+.draft-card .primary { width: 100%; }
+.draft-discard { display: block; min-height: 44px; font-size: 12px; margin-top: 4px; }
+.draft-confirm { margin-top: 12px; }
+.draft-confirm > div { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 12px; }
+.opinion-edit .draft-card { padding: 14px; margin: 0 0 12px; }
+.opinion-edit .draft-card h2 { font-size: 21px; }
+.review-storage-error, .review-leave-error { padding: 12px 0; }
+@media (max-width: 600px) {
+  main.review-main { padding: 0 20px 24px; }
+  .review-page-heading h1 { font-size: 29px; }
+}
+@media (max-width: 360px) {
+  main.review-main { padding-left: 16px; padding-right: 16px; }
+  .review-nav { gap: 8px; }
+  .review-profile { gap: 5px; font-size: 11px; }
+  .dedicated-review .file-button { font-size: 12px; }
+}

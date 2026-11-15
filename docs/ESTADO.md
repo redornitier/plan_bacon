@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Actualizado: 15 de noviembre de 2026. Versión de la aplicación: 0.10.0.
+Actualizado: 15 de noviembre de 2026. Versión de la aplicación: 0.11.0.
 
 ## Punto de partida para otro chat u ordenador
 
@@ -68,3 +68,11 @@ El código usa React/TypeScript/Vite con Cloudflare Workers, D1, R2 Standard y e
 ## Qué no se sincroniza con Git
 
 Credenciales, sesiones de navegador, historial de los chats, datos de `.wrangler/state`, fotos locales y copias de seguridad. Los datos compartidos de la aplicación están en Cloudflare. La configuración de ejemplo apunta a esos recursos existentes y no contiene claves de acceso.
+
+## Formulario dedicado y borradores con foto · 15 de noviembre de 2026
+
+- Vista dedicada para nueva valoración y edición: cabecera breve con plato, restaurante y perfil, foto y comentario debajo del slider, sin tarjeta exterior ni opiniones debajo. Al crear un plato se abre su primera valoración. Las rutas de ficha existentes siguen funcionando.
+- Se conserva `ratingEffects.ts` sin cambios: salsa WebGL, vapor, brasas, celebración, frases aleatorias, teclado y movimiento reducido. El slider usa una variante de presentación sin nombre repetido ni tarjeta anidada.
+- Borradores en IndexedDB por plato/perfil/opinión: nota, comentario, foto original (Blob y nombre/MIME), fecha y clave de solicitud. Metadatos y foto se guardan atómicamente; la foto solo se escribe al sustituirla. Lectura antes de permitir editar, escrituras ordenadas, recuperación al recargar/cerrar, limpieza tras publicación, descarte explícito con confirmación. Los errores de almacenamiento no se presentan como guardados y permiten reintentar.
+- Borradores locales al navegador/dispositivo, sin sincronización ni garantía ante borrado de datos, cuotas o expulsión por el navegador; no implica funcionamiento sin conexión. No se cambian API, datos de producción ni migraciones.
+- Pruebas de almacenamiento con `fake-indexeddb` (solo desarrollo): bytes de foto, aislamiento por perfil/plato/edición, orden de escrituras, limpieza, recuperación de formulario y clave idempotente, fallos de almacenamiento y navegación. Tipos, compilación, 33 pruebas de la suite completa y la prueba adicional de alta → valoración aprobados (34 casos en total); `pnpm deploy:dry` correcto. Navegador local a 320/360 px: formulario dedicado, foto de prueba recuperada tras recargar (1200 × 900), nota y comentario conservados, vuelta a ficha y continuación, canvases activos y sin errores de consola ni desbordamiento. Publicado con Cloudflare `8275c447-7938-43f1-b77c-4abf314047be`. Sin escrituras en los datos compartidos de producción.

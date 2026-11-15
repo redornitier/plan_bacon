@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { api, ApiError } from './api';
 import { RatingSlider } from './RatingSlider';
+import { useReviewDraft } from './useReviewDraft';
+import { listDrafts, removeDraft } from './reviewDrafts';
+import type { DraftListing } from './reviewDrafts';
 import { charLength, cleanName, filterAndSort, MAX_PHOTO_BYTES, normalizeName, PHOTO_TYPES, photoUrl, sortOpinions } from '../shared/domain';
 import type { Config, Detail, Dish, Opinion, Profile, Restaurant, RestaurantSummary } from '../shared/domain';
 
@@ -74,7 +77,10 @@ export default function App() {
   };
   const changeProfile = () => { setChoosing(true); config.retry(); go('/'); };
   const showChooser = choosing || !profile;
-  const dishId = route.match(/^\/platos\/([\w-]+)$/)?.[1];
+  const dishRoute = route.match(/^\/platos\/([\w-]+)(?:\/(valorar)|\/opiniones\/(\d+)\/editar)?$/);
+  const dishId = dishRoute?.[1];
+  const editor = dishRoute?.[2] ? 'new' : dishRoute?.[3] ? Number(dishRoute[3]) : undefined;
+  const reviewing = editor !== undefined && !showChooser && !config.loading && !config.error;
   const restaurantRoute = route.match(/^\/restaurantes\/([\w-]+)(\/nuevo)?$/);
   const restaurantId = restaurantRoute?.[1] ?? (route === '/nuevo' ? config.data?.restaurante.id : undefined);
   const addingDish = !!restaurantRoute?.[2] || route === '/nuevo';
@@ -85,18 +91,18 @@ export default function App() {
   const showCatalog = !config.loading && !config.error && !showChooser && !addingDish && !dishId;
   return <>
     <a className="skip-link" href="#main">Saltar al contenido</a>
-    <header className={`site-header${showCatalog ? ' catalog-header' : ''}`}><a href="#/" className="brand" aria-label="Plan Bacon, inicio"><span className="brand-mark">b.</span><span>plan bacon<span className="brand-caption">LAS OPINIONES DE NUESTRA MESA</span></span></a>
+    {!reviewing && <header className={`site-header${showCatalog ? ' catalog-header' : ''}`}><a href="#/" className="brand" aria-label="Plan Bacon, inicio"><span className="brand-mark">b.</span><span>plan bacon<span className="brand-caption">LAS OPINIONES DE NUESTRA MESA</span></span></a>
       {!showChooser && <div className="profile-control"><span className="avatar">{profile.nombre_visible[0]}</span><span><strong>{profile.nombre_visible}</strong><button className="text-button" onClick={changeProfile}>Cambiar perfil</button></span></div>}
-    </header>
-    <main id="main" className={showCatalog ? 'catalog-main' : undefined} tabIndex={-1} ref={heading}>
+    </header>}
+    <main id="main" className={reviewing ? 'review-main' : showCatalog ? 'catalog-main' : undefined} tabIndex={-1} ref={heading}>
       {config.loading ? <p className="loading" role="status">Preparando la mesa…</p> : config.error ? <ErrorBox message={config.error} retry={config.retry}/> : config.data && (showChooser ?
         <ProfileChooser profiles={config.data.perfiles} selected={profileId} onChoose={choose}/> :
-        dishId ? <DishDetail key={`${dishId}:${profileId}`} id={dishId} profile={profile!} notice={notice} onSaved={() => setNotice('Tu valoración está guardada. ¡Gracias por compartirla!')}/> :
+        dishId ? <DishDetail key={`${route}:${profileId}`} id={dishId} editor={editor} profile={profile!} notice={notice} onSaved={() => setNotice('Tu valoración está guardada. ¡Gracias por compartirla!')}/> :
         restaurantId ? <RestaurantPage key={restaurantId} id={restaurantId} addingDish={addingDish} profile={profile!} preferences={preferences} setPreferences={setPreferences} onCreated={() => { setPreferences({ query: '' }); setNotice('Plato añadido. Ya puedes valorar tu ración.'); }}/> :
         <Restaurants/>
       )}
     </main>
-    <footer><span>Buen criterio. Mejor compañía.</span><span>Plan Bacon · Nuestra mesa</span></footer>
+    {!reviewing && <footer><span>Buen criterio. Mejor compañía.</span><span>Plan Bacon · Nuestra mesa</span></footer>}
   </>;
 }
 
@@ -169,7 +175,7 @@ export function NewDish({ restaurant, profile, initialName, onCreated }: { resta
     setBusy(true);
     try {
       const { plato } = await api<{ plato: Dish }>(catalogApi(restaurant.id), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: name, perfil_id: profile.id }) });
-      onCreated(); go(`/platos/${plato.id}`);
+      onCreated(); go(`/platos/${plato.id}/valorar`);
     } catch (e) { if (e instanceof ApiError && e.status === 409) setConflict(e.data.plato); else setError(message(e)); }
     finally { setBusy(false); }
   }
@@ -178,78 +184,149 @@ export function NewDish({ restaurant, profile, initialName, onCreated }: { resta
       {exact ? <div className="suggestion exact" role="status"><strong>Este plato ya está en nuestra mesa</strong><p>{exact.nombre}</p><a className="secondary" href={`#/platos/${exact.id}`}>Abrir plato <Icon name="arrow"/></a></div> : matches.length > 0 && <div className="suggestion"><span className="eyebrow">¿TE REFIERES A ALGUNO DE ESTOS?</span>{matches.slice(0, 5).map(d => <a key={d.id} href={`#/platos/${d.id}`}>{d.nombre}<Icon name="arrow"/></a>)}<p className="hint">Si es otro plato, puedes crearlo igualmente.</p></div>}
       {catalog.error && <ErrorBox message="No se pudieron cargar las sugerencias. Al guardar comprobaremos si el plato ya existe." retry={catalog.retry}/>}
       {error && <ErrorBox message={error}/>}
-      <button className="primary wide" disabled={busy || !!exact}>{busy ? 'Creando plato…' : 'Crear plato'}<Icon name="plus"/></button>
+      <button className="primary wide" disabled={busy || !!exact}>{busy ? 'Creando plato…' : 'Crear plato y valorar'}<Icon name="plus"/></button>
     </form>
   </section>;
 }
 
-export function DishDetail({ id, profile, notice, onSaved }: { id: string; profile: Profile; notice: string; onSaved: () => void }) {
+export function DishDetail({ id, profile, notice, onSaved, editor }: { id: string; profile: Profile; notice: string; onSaved: () => void; editor?: 'new' | number }) {
   const detail = useLoad<Detail>(`/api/platos/${id}`);
-  const [editing, setEditing] = useState<Opinion | 'new' | null>(null);
+  const [drafts, setDrafts] = useState<DraftListing[]>([]);
+  const [draftError, setDraftError] = useState('');
+  const [draftRevision, setDraftRevision] = useState(0);
+  useEffect(() => {
+    let active = true;
+    listDrafts(id, profile.id).then(items => { if (active) { setDrafts(items); setDraftError(''); } }).catch(() => { if (active) setDraftError('No se pudieron consultar los borradores de este dispositivo.'); });
+    return () => { active = false; };
+  }, [id, profile.id, draftRevision]);
   const [opinionSort, setOpinionSort] = useState('date');
   if (detail.loading) return <p className="loading" role="status">Preparando el plato…</p>;
   if (detail.error || !detail.data) return <><a className="back-link" href="#/">Restaurantes</a><ErrorBox message={detail.error} retry={detail.retry}/></>;
   const { plato, opiniones, restaurante } = detail.data;
   const sortedOpinions = sortOpinions(opiniones, opinionSort);
+  if (editor !== undefined) {
+    const previous = editor === 'new' ? undefined : opiniones.find(o => o.id === editor && o.perfil_id === profile.id);
+    if (editor !== 'new' && !previous) return <><a className="back-link" href={`#/platos/${id}`}>Volver al plato</a><ErrorBox message="No encontramos esa opinión para este perfil."/></>;
+    return <ReviewForm dish={plato} restaurant={restaurante.nombre} profile={profile} previous={previous} onCancel={() => go(`/platos/${id}`)} onSaved={() => { onSaved(); go(`/platos/${id}`); }}/>
+  }
+  const newDraft = drafts.find(d => d.opinionId === null);
+  const openReview = (opinionId?: number) => go(`/platos/${id}/${opinionId ? `opiniones/${opinionId}/editar` : 'valorar'}`);
+  const draftCard = (draft: DraftListing) => <DraftCard key={draft.requestId} draft={draft} onResume={() => openReview(draft.opinionId ?? undefined)} onDiscarded={() => setDraftRevision(n => n + 1)}/>;
   return <>
     <a className="back-link" href={`#${restaurantPath(plato.restaurante_id)}`}><Icon name="back"/>Volver a los platos</a>
     <section className="detail-heading"><span className="eyebrow">{restaurante.nombre}</span><h1>{plato.nombre}</h1><div className="detail-meta">{plato.media === null ? <span className="unrated">Sin valorar</span> : <><span className="rating-number">{score(plato.media)}<small>/100</small></span><span>{plato.total} {plato.total === 1 ? 'valoración de la mesa' : 'valoraciones de la mesa'}</span></>}</div></section>
-    {notice && !editing && <p className="notice" role="status"><Icon name="check"/>{notice}</p>}
-    {editing ? <ReviewForm key={editing === 'new' ? 'new' : editing.id} dish={plato} profile={profile} previous={editing === 'new' ? undefined : editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); onSaved(); detail.retry(); }}/> : <div className="review-callout"><div><strong>¿Qué tal estaba esta vez?</strong><p>Puedes guardar una nueva opinión cada vez que lo pruebes.</p></div><button className="primary" onClick={() => setEditing('new')}><Icon name="plus"/>Añadir valoración</button></div>}
+    {notice && <p className="notice" role="status"><Icon name="check"/>{notice}</p>}
+    {draftError && <ErrorBox message={draftError} retry={() => setDraftRevision(n => n + 1)}/>}
+    {newDraft ? draftCard(newDraft) : <div className="review-callout"><div><strong>¿Qué tal estaba esta vez?</strong><p>Puedes guardar una nueva opinión cada vez que lo pruebes.</p></div><button className="primary" onClick={() => openReview()}><Icon name="plus"/>Añadir valoración</button></div>}
     <div className="section-line"><h2>Las opiniones de la mesa</h2><div className="opinion-sort"><label htmlFor="opinion-sort">Ordenar valoraciones</label><select id="opinion-sort" value={opinionSort} onChange={e => setOpinionSort(e.target.value)}><option value="date">Por fecha · más recientes</option><option value="rating">Por puntuación · mayor primero</option></select></div></div>
     {!opiniones.length ? <Empty title="La primera opinión puede ser la tuya">Todavía nadie ha valorado este plato. Cuéntanos qué tal estaba.</Empty> : <div className="opinions">{sortedOpinions.map(o => <article className="opinion" key={o.id}>
       <a href={photoUrl(o.foto_clave)} target="_blank" rel="noreferrer" aria-label={`Ampliar la foto de ${o.nombre_visible}`}><img src={photoUrl(o.foto_clave)} alt={`Ración de ${plato.nombre} de ${o.nombre_visible}`} loading="lazy"/></a>
       <div className="opinion-body"><div className="opinion-top"><div className="opinion-author"><span className="avatar">{o.nombre_visible[0]}</span><strong>{o.nombre_visible}</strong>{o.perfil_id === profile.id && <span className="you">Tú</span>}</div><span className="rating-number">{o.valoracion}<small>/100</small></span></div>
         {o.comentario && <p className="comment">{o.comentario}</p>}<p className="date">Publicada · <time dateTime={o.creada_en}>{date(o.creada_en)}</time><br/>Última edición · <time dateTime={o.actualizada_en}>{date(o.actualizada_en)}</time></p>
       </div>
-      {o.perfil_id === profile.id && <div className="opinion-edit"><button className="text-button" disabled={!!editing} onClick={() => { setEditing(o); window.scrollTo(0, 0); }} aria-label={`Editar mi valoración de ${o.valoracion} puntos, ${date(o.creada_en)}`}>Editar mi valoración</button></div>}
+      {o.perfil_id === profile.id && <div className="opinion-edit">{drafts.filter(d => d.opinionId === o.id).map(draftCard)}<button className="text-button" onClick={() => openReview(o.id)} aria-label={`Editar mi valoración de ${o.valoracion} puntos, ${date(o.creada_en)}`}>Editar mi valoración</button></div>}
     </article>)}</div>}
   </>;
 }
 
-export function ReviewForm({ dish, profile, previous, onCancel, onSaved }: { dish: Dish; profile: Profile; previous?: Opinion; onCancel: () => void; onSaved: () => void }) {
-  const [requestId] = useState(() => crypto.randomUUID());
-  const [rating, setRating] = useState<number | null>(previous?.valoracion ?? null);
-  const [comment, setComment] = useState(previous?.comentario ?? '');
-  const [file, setFile] = useState<File | null>(null);
+function DraftCard({ draft, onResume, onDiscarded }: { draft: DraftListing; onResume: () => void; onDiscarded: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function discard() {
+    setBusy(true); setError('');
+    try { await removeDraft(draft.key, draft.requestId); onDiscarded(); }
+    catch { setError('No se pudo descartar el borrador. Vuelve a intentarlo.'); }
+    finally { setBusy(false); }
+  }
+  return <section className="draft-card" aria-label={draft.opinionId ? 'Borrador de edición' : 'Borrador de valoración'}>
+    <h2>{draft.opinionId ? 'Tienes una edición a medias' : 'Tienes una opinión a medias'}</h2>
+    <p>{draft.rating === null ? 'Sin nota todavía' : `Tu nota: ${draft.rating}`} · {draft.photo ? 'Foto guardada' : draft.opinionId ? 'Conserva la foto publicada' : 'Falta la foto'}</p>
+    <p className="hint">{draft.persisted ? 'Guardado en este dispositivo. Solo se publica cuando tú lo confirmas.' : 'El guardado local ha fallado. Continúa el borrador antes de cerrar esta página.'}</p>
+    <button className="primary" onClick={onResume} disabled={busy}>{draft.opinionId ? 'Continuar mi edición' : 'Continuar mi valoración'}<Icon name="arrow"/></button>
+    {confirming ? <div className="draft-confirm"><p>¿Descartar la nota, la foto y el comentario del borrador? La opinión publicada no cambia.</p><div><button className="secondary" onClick={() => setConfirming(false)} disabled={busy}>Conservar</button><button className="text-button" onClick={discard} disabled={busy}>{busy ? 'Descartando…' : 'Sí, descartar'}</button></div></div> : <button className="text-button draft-discard" onClick={() => setConfirming(true)}>Descartar borrador</button>}
+    {error && <ErrorBox message={error}/>}
+  </section>;
+}
+
+export function ReviewForm({ dish, restaurant, profile, previous, onCancel, onSaved }: { dish: Dish; restaurant?: string; profile: Profile; previous?: Opinion; onCancel: () => void; onSaved: () => void }) {
+  const local = useReviewDraft(dish.id, profile.id, previous);
+  const { draft, status } = local;
+  const { rating, comment, photo } = draft;
   const [preview, setPreview] = useState('');
   const [error, setError] = useState('');
   const [missingPhoto, setMissingPhoto] = useState(false);
   const [missingRating, setMissingRating] = useState(false);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (!file) { setPreview(''); return; } const url = URL.createObjectURL(file); setPreview(url); return () => URL.revokeObjectURL(url); }, [file]);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveFailed, setLeaveFailed] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const submitting = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => { if (!photo) { setPreview(''); return; } const url = URL.createObjectURL(photo); setPreview(url); return () => URL.revokeObjectURL(url); }, [photo]);
+  useEffect(() => {
+    if (missingPhoto || missingRating) formRef.current?.querySelector<HTMLElement>(missingRating ? '#rating' : '#gallery')?.focus();
+  }, [missingPhoto, missingRating]);
   function selectFile(next?: File) {
     if (!next) return;
     if (!PHOTO_TYPES.includes(next.type) || !next.size || next.size > MAX_PHOTO_BYTES) { setError('Elige una foto JPEG, PNG o WebP de hasta 10 MB.'); return; }
-    setFile(next); setMissingPhoto(false); setError('');
+    local.change({ photo: next.slice(0, next.size, next.type), photoId: crypto.randomUUID(), photoName: next.name, photoLastModified: next.lastModified });
+    setMissingPhoto(false); setError('');
+  }
+  async function leave() {
+    setLeaving(true); setLeaveFailed(false);
+    try { await local.flush(); onCancel(); }
+    catch { setLeaveFailed(true); }
+    finally { setLeaving(false); }
+  }
+  async function finish() {
+    try { await local.complete(); onSaved(); }
+    catch { setError('Tu valoración ya está publicada, pero no se pudo retirar el borrador de este dispositivo. Reintenta la limpieza; no se volverá a publicar.'); }
   }
   async function submit(e: FormEvent) {
-    e.preventDefault(); setError('');
-    setMissingPhoto(!file && !previous); setMissingRating(rating === null);
-    if ((!file && !previous) || rating === null) return;
-    setBusy(true);
+    e.preventDefault();
+    if (submitting.current) return;
+    setError('');
+    if (submitted) { setBusy(true); await finish(); setBusy(false); return; }
+    setMissingPhoto(!photo && !previous); setMissingRating(rating === null);
+    if ((!photo && !previous) || rating === null) return;
+    submitting.current = true; setBusy(true);
+    // Commit the request key along with the photo before sending. If storage is unavailable,
+    // a manual publish still works; the UI has already explained the local limitation.
+    await local.flush().catch(() => {});
     const form = new FormData();
     form.set('perfil_id', profile.id); form.set('valoracion', String(rating)); form.set('comentario', comment);
-    if (file) form.set('foto', file);
-    if (!previous) form.set('solicitud_id', requestId);
-    try { await api(`/api/platos/${dish.id}/opiniones${previous ? `/${previous.id}` : ''}`, { method: previous ? 'PUT' : 'POST', body: form }); onSaved(); }
-    catch (e) { setError(message(e)); }
-    finally { setBusy(false); }
+    if (photo) form.set('foto', new File([photo], draft.photoName || 'racion.jpg', { type: photo.type, lastModified: draft.photoLastModified }));
+    if (!previous) form.set('solicitud_id', draft.requestId);
+    try {
+      await api(`/api/platos/${dish.id}/opiniones${previous ? `/${previous.id}` : ''}`, { method: previous ? 'PUT' : 'POST', body: form });
+      setSubmitted(true); await finish();
+    } catch (e) { setError(message(e)); }
+    finally { setBusy(false); submitting.current = false; }
   }
   const image = preview || (previous ? photoUrl(previous.foto_clave) : '');
-  return <form className="review-form" onSubmit={submit} noValidate>
-    <div className="form-heading"><h2>{previous ? 'Actualizar mi opinión' : 'Tu ración, tu opinión'}</h2><button className="text-button" type="button" disabled={busy} onClick={onCancel}>Cancelar</button></div>
-    <fieldset disabled={busy} className="review-fields"><legend className="sr-only">Valoración de {dish.nombre}</legend>
-      <RatingSlider dishName={dish.nombre} value={rating} onChange={value => { setRating(value); setMissingRating(false); }} invalid={missingRating} disabled={busy}/>
-      <label>2. Una foto de tu ración <span className="required">Obligatoria</span></label>
-      {image && <div className="photo-preview"><img src={image} alt="Foto de tu ración"/><span>{file ? 'Nueva foto seleccionada' : 'Conservamos tu foto actual'}</span></div>}
-      <div className="photo-actions"><label className="secondary file-button" htmlFor="camera"><Icon name="camera"/>Hacer foto<input id="camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => { selectFile(e.target.files?.[0]); e.target.value = ''; }}/></label><label className="secondary file-button" htmlFor="gallery"><Icon name="image"/>Elegir de galería<input id="gallery" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { selectFile(e.target.files?.[0]); e.target.value = ''; }}/></label></div>
-      <p className="hint">JPEG, PNG o WebP · Hasta 10 MB. {previous && 'Si no eliges otra, se conserva la que ya tienes.'}</p>
-      {missingPhoto && <p className="field-error" role="alert">Añade una foto de tu ración.</p>}
-      <label htmlFor="comment">3. Una pista para la próxima <span className="optional">Opcional</span></label><textarea id="comment" rows={3} maxLength={500} value={comment} onChange={e => setComment(e.target.value)} placeholder="El punto, la salsa, la ración… ¿con qué te quedas?"/><div className="field-bottom"><span>Con tus palabras, sin complicaciones.</span><span>{charLength(comment)}/500</span></div>
-    </fieldset>
-    {error && <ErrorBox message={error}/>}
-    <button className="primary wide" disabled={busy}>{busy ? 'Guardando tu valoración…' : `${error ? 'Reintentar · ' : ''}Guardar como ${profile.nombre_visible}`}<Icon name="check"/></button>
-    <p className="hint signature">La opinión se firma como {profile.nombre_visible}. Puedes añadir tantas valoraciones como quieras.</p>
-  </form>;
+  const locked = busy || leaving || submitted;
+  return <section className="review-page">
+    <header className="review-nav"><button className="text-button" onClick={leave} disabled={busy || leaving || status === 'loading'}><Icon name="back"/>{leaving ? 'Guardando borrador…' : 'Volver al plato'}</button><span className="review-profile"><span className="avatar">{profile.nombre_visible[0]}</span>{profile.nombre_visible}</span></header>
+    <div className="review-page-heading"><span className="eyebrow">{restaurant ? `${restaurantName(restaurant)} · ` : ''}{previous ? 'Editar tu opinión' : 'Tu valoración'}</span><h1>{dish.nombre}</h1></div>
+    {status === 'loading' ? <p className="loading" role="status">Buscando tu borrador…</p> : local.loadError ? <div className="review-storage-error"><ErrorBox message="No podemos acceder al borrador de este dispositivo. No hemos sustituido nada." retry={local.retryLoad}/><button className="text-button" onClick={local.continueWithoutStorage}>Continuar sin recuperación de borrador</button></div> : <form ref={formRef} className="review-form dedicated-review" onSubmit={submit} noValidate>
+      {local.restored && <p className="draft-restored" role="status"><Icon name="check"/>Seguimos donde lo dejaste.</p>}
+      <fieldset disabled={locked} className="review-fields"><legend className="sr-only">Valoración de {dish.nombre}</legend>
+        <RatingSlider dishName={dish.nombre} dedicated value={rating} onChange={value => { local.change({ rating: value }); setMissingRating(false); }} invalid={missingRating} disabled={locked}/>
+        <section className="review-photo-section" aria-label="Foto de tu ración">
+          <p className="review-field-title">Una foto de tu ración <span>Obligatoria</span></p>
+          {image && <div className="photo-preview"><img src={image} alt="Foto de tu ración"/><div><span>{photo ? 'Nueva foto seleccionada' : 'Conservamos tu foto actual'}</span>{photo && <button type="button" className="text-button" onClick={() => local.change({ photo: null, photoId: null, photoName: '', photoLastModified: 0 })}>{previous ? 'Usar la foto publicada' : 'Quitar foto'}</button>}</div></div>}
+          <div className="photo-actions"><label className="secondary file-button" htmlFor="camera"><Icon name="camera"/>Hacer foto<input id="camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => { selectFile(e.target.files?.[0]); e.target.value = ''; }}/></label><label className="secondary file-button" htmlFor="gallery"><Icon name="image"/>Elegir de galería<input id="gallery" type="file" accept="image/jpeg,image/png,image/webp" aria-invalid={missingPhoto} aria-describedby={missingPhoto ? 'photo-error' : undefined} onChange={e => { selectFile(e.target.files?.[0]); e.target.value = ''; }}/></label></div>
+          <p className="hint">JPEG, PNG o WebP · Hasta 10 MB.</p>
+          {missingPhoto && <p id="photo-error" className="field-error" role="alert">Añade una foto de tu ración.</p>}
+        </section>
+        <section className="review-comment-section"><label className="review-field-title" htmlFor="comment">Una pista para la próxima <span>Opcional</span></label><textarea id="comment" rows={2} maxLength={500} value={comment} onChange={e => local.change({ comment: e.target.value })} placeholder="El punto, la salsa… ¿con qué te quedas?"/><div className="review-comment-count">{charLength(comment)} / 500</div></section>
+      </fieldset>
+      <div className="draft-status" role="status">{status === 'saving' ? 'Guardando borrador y foto…' : status === 'saved' ? 'Borrador y foto guardados en este dispositivo' : status === 'error' ? 'No se pudo guardar el borrador en este dispositivo. No cierres la página.' : 'Tu borrador y su foto se guardan en este dispositivo'}</div>
+      {status === 'error' && !submitted && <button className="text-button" type="button" disabled={busy || leaving} onClick={() => { void local.flush().catch(() => {}); }}>Reintentar guardado del borrador</button>}
+      {error && <ErrorBox message={error}/>}
+      <button className="primary wide" disabled={busy || leaving}>{busy ? 'Guardando tu valoración…' : submitted ? 'Retirar borrador publicado' : `${error ? 'Reintentar · ' : ''}Guardar como ${profile.nombre_visible}`}<Icon name="check"/></button>
+    </form>}
+    {leaveFailed && <div className="review-leave-error"><ErrorBox message="El borrador no está guardado. Si sales o cierras la página, podrías perder la nota, el comentario y la foto."/><button className="text-button" onClick={onCancel}>Salir sin guardar el borrador</button></div>}
+  </section>;
 }

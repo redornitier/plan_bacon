@@ -1,17 +1,18 @@
+import 'fake-indexeddb/auto';
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import type { Dish, Opinion } from '../shared/domain';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
-Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement, sessionStorage: dom.window.sessionStorage });
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
 const { render, fireEvent, waitFor, cleanup } = await import('@testing-library/react');
-const { ReviewForm, DishDetail } = await import('../src/App');
+const { default: App, ReviewForm } = await import('../src/App');
 const { RatingSlider } = await import('../src/RatingSlider');
 const { ratingRepertoires } = await import('../src/ratingCopy');
 const originalFetch = globalThis.fetch;
-afterEach(() => { cleanup(); globalThis.fetch = originalFetch; });
+afterEach(() => { cleanup(); globalThis.fetch = originalFetch; sessionStorage.clear(); dom.window.history.replaceState(null, '', '/'); });
 const dish: Dish = { id: 'dish', nombre: 'Croquetas', nombre_normalizado: 'croquetas', restaurante_id: 'el-volante', media: null, total: 0, foto_clave: null };
 const profile = { id: 'alexandre', nombre_visible: 'Alexandre' };
 const file = new File([new Uint8Array([1, 2, 3])], 'fixture.jpg', { type: 'image/jpeg' });
@@ -20,6 +21,7 @@ test('CA-08 UI: photo and explicit score are required; displayed midpoint is not
   let calls = 0;
   globalThis.fetch = async () => { calls++; return Response.json({}); };
   const view = render(<ReviewForm dish={dish} profile={profile} onCancel={() => {}} onSaved={() => {}}/>);
+  await waitFor(() => assert.ok(view.getByRole('button', { name: 'Guardar como Alexandre' })));
   fireEvent.click(view.getByRole('button', { name: 'Guardar como Alexandre' }));
   assert.ok(view.getByText('Añade una foto de tu ración.'));
   assert.ok(view.getByText('Elige una puntuación entre 1 y 100.'));
@@ -47,6 +49,7 @@ for (const editing of [false, true]) test(`CA-07 UI: ${editing ? 'replacement' :
   };
   const previous: Opinion | undefined = editing ? { id: 1, plato_id: 'dish', perfil_id: 'alexandre', nombre_visible: 'Alexandre', foto_clave: 'old-photo', valoracion: 60, comentario: 'Anterior', creada_en: '2026-11-10T10:00:00Z', actualizada_en: '2026-11-10T10:00:00Z' } : undefined;
   const view = render(<ReviewForm dish={dish} profile={profile} previous={previous} onCancel={() => {}} onSaved={() => { saved++; }}/>);
+  await waitFor(() => assert.ok(view.getByRole('slider')));
   if (editing) assert.ok(view.getByText('Conservamos tu foto actual'));
   fireEvent.change(view.getByLabelText('Elegir de galería'), { target: { files: [file] } });
   fireEvent.change(view.getByRole('slider'), { target: { value: '73' } });
@@ -78,9 +81,11 @@ test('Dish UI: add another opinion, edit either own opinion and order by date or
     { id: 2, perfil_id: 'alexandre', nombre_visible: 'Alexandre', valoracion: 60, creada_en: '2026-11-11T12:00:00Z' },
     { id: 1, perfil_id: 'alexandre', nombre_visible: 'Alexandre', valoracion: 90, creada_en: '2026-11-10T12:00:00Z' },
   ].map(o => ({ ...o, plato_id: dish.id, foto_clave: 'foto', comentario: null, actualizada_en: o.creada_en }));
-  globalThis.fetch = async () => Response.json({ restaurante: { id: 'el-volante', nombre: 'Restaurante El Volante' }, plato: { ...dish, total: 3, media: 73.333 }, opiniones: opinions });
+  globalThis.fetch = async url => url === '/api/config' ? Response.json({ restaurante: { id: 'el-volante', nombre: 'El Volante' }, perfiles: [profile] }) : Response.json({ restaurante: { id: 'el-volante', nombre: 'Restaurante El Volante' }, plato: { ...dish, total: 3, media: 73.333 }, opiniones: opinions });
   dom.window.scrollTo = () => {};
-  const view = render(<DishDetail id={dish.id} profile={profile} notice="" onSaved={() => {}}/>);
+  sessionStorage.setItem('plan-bacon-profile', profile.id);
+  dom.window.history.replaceState(null, '', '/#/platos/dish');
+  const view = render(<App/>);
   await waitFor(() => assert.ok(view.getByRole('button', { name: 'Añadir valoración' })));
   const values = () => Array.from(view.container.querySelectorAll('article .rating-number')).map(n => n.textContent);
   assert.deepEqual(values(), ['70/100', '60/100', '90/100']);
@@ -88,13 +93,15 @@ test('Dish UI: add another opinion, edit either own opinion and order by date or
   assert.deepEqual(values(), ['90/100', '70/100', '60/100']);
   assert.equal(view.getAllByRole('button', { name: /Editar mi valoración/ }).length, 2);
   fireEvent.click(view.getByRole('button', { name: /Editar mi valoración de 90 puntos/ }));
-  assert.equal((view.getByRole('slider') as HTMLInputElement).value, '90');
-  fireEvent.click(view.getByRole('button', { name: 'Cancelar' }));
+  await waitFor(() => assert.equal((view.getByRole('slider') as HTMLInputElement).value, '90'));
+  fireEvent.click(view.getByRole('button', { name: 'Volver al plato' }));
+  await waitFor(() => assert.ok(view.getByRole('button', { name: 'Añadir valoración' })));
   fireEvent.click(view.getByRole('button', { name: /Editar mi valoración de 60 puntos/ }));
-  assert.equal((view.getByRole('slider') as HTMLInputElement).value, '60');
-  fireEvent.click(view.getByRole('button', { name: 'Cancelar' }));
+  await waitFor(() => assert.equal((view.getByRole('slider') as HTMLInputElement).value, '60'));
+  fireEvent.click(view.getByRole('button', { name: 'Volver al plato' }));
+  await waitFor(() => assert.ok(view.getByRole('button', { name: 'Añadir valoración' })));
   fireEvent.click(view.getByRole('button', { name: 'Añadir valoración' }));
-  assert.equal(view.getByRole('slider').getAttribute('aria-valuetext')?.startsWith('Sin elegir'), true);
+  await waitFor(() => assert.equal(view.getByRole('slider').getAttribute('aria-valuetext')?.startsWith('Sin elegir'), true));
   assert.equal(view.queryByText('Conservamos tu foto actual'), null);
 });
 

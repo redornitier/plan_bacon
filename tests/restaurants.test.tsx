@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
@@ -76,7 +77,7 @@ test('New dish: suggestions and writes use the selected restaurant, including du
   await waitFor(() => assert.equal(calls.length, 1));
   assert.ok(view.getByText('Otro local de prueba'));
   fireEvent.change(view.getByLabelText('Nombre del plato'), { target: { value: 'Arroz' } });
-  fireEvent.click(view.getByRole('button', { name: 'Crear plato' }));
+  fireEvent.click(view.getByRole('button', { name: 'Crear plato y valorar' }));
   await waitFor(() => assert.ok(view.getByRole('link', { name: 'Abrir plato' })));
   assert.deepEqual(calls, [{ url: '/api/restaurantes/second-test/platos', method: 'GET' }, { url: '/api/restaurantes/second-test/platos', method: 'POST' }]);
   assert.equal(view.getByRole('link', { name: 'Abrir plato' }).getAttribute('href'), '#/platos/concurrent-dish');
@@ -95,4 +96,15 @@ test('Direct links: a saved dish URL resolves its restaurant, and an invalid res
   await waitFor(() => assert.ok(missing.getByRole('alert')));
   assert.equal(missing.queryByLabelText('Buscar plato'), null);
   assert.ok(missing.getByRole('link', { name: 'Restaurantes' }));
+});
+
+test('New dish: successful creation opens its dedicated first-review screen', async () => {
+  globalThis.fetch = async (_url, init) => init?.method === 'POST'
+    ? Response.json({ plato: { ...dishes[1], id: 'new-dish' } }, { status: 201 })
+    : Response.json({ platos: [] });
+  let created = false;
+  const view = render(<NewDish restaurant={restaurants[1]} profile={profiles[0]} initialName="Arroz" onCreated={() => { created = true; }}/>);
+  fireEvent.click(view.getByRole('button', { name: 'Crear plato y valorar' }));
+  await waitFor(() => assert.equal(dom.window.location.hash, '#/platos/new-dish/valorar'));
+  assert.equal(created, true);
 });

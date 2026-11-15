@@ -5,5 +5,6 @@ import './styles.css';
 import './catalog.css';
 import './restaurants.css';
 import './rating-slider.css';
+import './review.css';
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
