@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { addProfileSql, inspectDishSql, renameDishSql } from './maintenance-sql';
+import { addProfileSql, addRestaurantSql, inspectDishSql, renameDishSql } from './maintenance-sql';
 
 const args = process.argv.slice(2).filter(a => a !== '--');
 const remote = args.includes('--remote');
@@ -12,9 +12,10 @@ const [command, first, second] = flags;
 if (remote === local) throw new Error('Indica exactamente --local o --remote.');
 let sql: string;
 if (command === 'add-profile' && first && !second) sql = addProfileSql(first);
+else if (command === 'add-restaurant' && first && !second) sql = addRestaurantSql(first);
 else if (command === 'rename-dish' && first && second) sql = renameDishSql(first, second);
 else if (command === 'inspect-dish' && first && !second) sql = inspectDishSql(first);
-else throw new Error('Uso: pnpm maintain --local|--remote add-profile "Nombre" | rename-dish ID "Nombre" | inspect-dish ID');
+else throw new Error('Uso: pnpm maintain --local|--remote add-profile "Nombre" | add-restaurant "Nombre" | rename-dish ID "Nombre" | inspect-dish ID');
 
 const dir = mkdtempSync(join(tmpdir(), 'plan-bacon-maintenance-'));
 try {

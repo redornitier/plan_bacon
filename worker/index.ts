@@ -1,5 +1,5 @@
 import { charLength, cleanName, filterAndSort, MAX_PHOTO_BYTES, normalizeName, sortOpinions } from '../shared/domain';
-import type { Config, Dish, Opinion, Profile, Restaurant } from '../shared/domain';
+import type { Config, Dish, Opinion, Profile, Restaurant, RestaurantSummary } from '../shared/domain';
 import type { Env } from './env';
 import { HttpError } from './errors';
 import { processPhoto } from './photos';
@@ -14,15 +14,25 @@ const summary = `SELECT d.*,
   (SELECT o.foto_clave FROM opiniones o WHERE o.plato_id = d.id ORDER BY o.creada_en DESC, o.id DESC LIMIT 1) foto_clave
   FROM platos d`;
 
+// The existing restaurant anchors the group, and remains the legacy API default.
+// No rows need moving: dishes already belong to a restaurant in the schema.
+const groupScope = '(SELECT grupo_id FROM restaurantes WHERE id = ?)';
+async function getRestaurant(env: Env, id: string) {
+  const restaurant = await env.DB.prepare(`SELECT id, nombre FROM restaurantes WHERE id = ? AND grupo_id = ${groupScope}`)
+    .bind(id, env.RESTAURANT_ID).first<Restaurant>();
+  if (!restaurant) throw new HttpError(404, 'No encontramos este restaurante. Vuelve a la lista.');
+  return restaurant;
+}
 async function getDish(env: Env, id: string) {
-  const dish = await env.DB.prepare(`${summary} WHERE d.id = ? AND d.restaurante_id = ?`).bind(id, env.RESTAURANT_ID).first<Dish>();
+  const dish = await env.DB.prepare(`${summary} WHERE d.id = ? AND d.restaurante_id IN
+    (SELECT id FROM restaurantes WHERE grupo_id = ${groupScope})`).bind(id, env.RESTAURANT_ID).first<Dish>();
   if (!dish) throw new HttpError(404, 'No encontramos este plato. Vuelve a la lista.');
   return dish;
 }
-async function requireProfile(env: Env, profile: unknown) {
+async function requireProfile(env: Env, profile: unknown, restaurantId: string) {
   if (typeof profile !== 'string' || !await env.DB.prepare(`SELECT p.id FROM perfiles p
     JOIN restaurantes r ON r.grupo_id = p.grupo_id WHERE p.id = ? AND r.id = ?`)
-    .bind(profile, env.RESTAURANT_ID).first()) throw new HttpError(400, 'Elige un perfil del grupo para continuar.');
+    .bind(profile, restaurantId).first()) throw new HttpError(400, 'Elige un perfil del grupo para continuar.');
   return profile;
 }
 
@@ -56,28 +66,47 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (!restaurante) throw new HttpError(503, 'Falta preparar el restaurante. Ejecuta la carga inicial.');
     const { results: perfiles } = await env.DB.prepare(`SELECT p.id, p.nombre_visible FROM perfiles p
       JOIN restaurantes r ON p.grupo_id = r.grupo_id WHERE r.id = ? ORDER BY p.rowid`).bind(env.RESTAURANT_ID).all<Profile>();
-    return json({ restaurante, perfiles } as Config);
+    const { results: restaurantes } = await env.DB.prepare(`SELECT id, nombre FROM restaurantes WHERE grupo_id = ${groupScope}`)
+      .bind(env.RESTAURANT_ID).all<Restaurant>();
+    restaurantes.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    return json({ restaurante, restaurantes, perfiles } satisfies Config);
   }
-  if (path === '/api/platos' && request.method === 'GET') {
-    const { results } = await env.DB.prepare(`${summary} WHERE d.restaurante_id = ?`).bind(env.RESTAURANT_ID).all<Dish>();
+  if (path === '/api/restaurantes' && request.method === 'GET') {
+    const { results } = await env.DB.prepare(`SELECT r.id, r.nombre,
+      (SELECT COUNT(*) FROM platos d WHERE d.restaurante_id = r.id) total_platos,
+      (SELECT o.foto_clave FROM opiniones o JOIN platos d ON d.id = o.plato_id
+        WHERE d.restaurante_id = r.id ORDER BY o.creada_en DESC, o.id DESC LIMIT 1) foto_clave
+      FROM restaurantes r WHERE r.grupo_id = ${groupScope}`).bind(env.RESTAURANT_ID).all<RestaurantSummary>();
+    results.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    return json({ restaurantes: results });
+  }
+  const restaurantMatch = path.match(/^\/api\/restaurantes\/([\w-]+)$/);
+  if (restaurantMatch && request.method === 'GET') return json({ restaurante: await getRestaurant(env, restaurantMatch[1]) });
+  const catalogMatch = path.match(/^\/api\/restaurantes\/([\w-]+)\/platos$/);
+  const catalogPath = path === '/api/platos' || !!catalogMatch;
+  const restaurantId = catalogMatch?.[1] ?? env.RESTAURANT_ID;
+  if (catalogPath && request.method === 'GET') {
+    await getRestaurant(env, restaurantId);
+    const { results } = await env.DB.prepare(`${summary} WHERE d.restaurante_id = ?`).bind(restaurantId).all<Dish>();
     return json({ platos: filterAndSort(results, url.searchParams.get('q') ?? '', url.searchParams.get('sort') ?? 'name') });
   }
-  if (path === '/api/platos' && request.method === 'POST') {
+  if (catalogPath && request.method === 'POST') {
+    await getRestaurant(env, restaurantId);
     let body: { nombre?: unknown; perfil_id?: unknown };
     try { body = await (await boundedBody(request, 4096)).json(); }
     catch (e) { if (e instanceof HttpError) throw e; throw new HttpError(400, 'Datos de plato no válidos.'); }
     if (!body || typeof body.nombre !== 'string') throw new HttpError(400, 'Escribe el nombre del plato.');
     const nombre = cleanName(body.nombre);
     if (charLength(nombre) < 1 || charLength(nombre) > 80) throw new HttpError(400, 'El nombre debe tener entre 1 y 80 caracteres.');
-    const profile = await requireProfile(env, body.perfil_id);
+    const profile = await requireProfile(env, body.perfil_id, restaurantId);
     const normalized = normalizeName(nombre);
     const id = crypto.randomUUID();
     try {
       await env.DB.prepare('INSERT INTO platos(id, restaurante_id, nombre, nombre_normalizado, creado_por) VALUES (?, ?, ?, ?, ?)')
-        .bind(id, env.RESTAURANT_ID, nombre, normalized, profile).run();
+        .bind(id, restaurantId, nombre, normalized, profile).run();
     } catch (e) {
       const existing = await env.DB.prepare('SELECT id, nombre FROM platos WHERE restaurante_id = ? AND nombre_normalizado = ?')
-        .bind(env.RESTAURANT_ID, normalized).first();
+        .bind(restaurantId, normalized).first();
       if (existing) throw new HttpError(409, 'Este plato ya está en nuestra mesa.', { plato: existing });
       throw e;
     }
@@ -89,7 +118,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     const { results: opiniones } = await env.DB.prepare(`SELECT o.*, p.nombre_visible FROM opiniones o
       JOIN perfiles p ON p.id = o.perfil_id WHERE o.plato_id = ? ORDER BY o.creada_en DESC, o.id DESC`)
       .bind(plato.id).all<Opinion>();
-    return json({ plato, opiniones: sortOpinions(opiniones, url.searchParams.get('sort') ?? 'date') });
+    return json({ restaurante: await getRestaurant(env, plato.restaurante_id), plato, opiniones: sortOpinions(opiniones, url.searchParams.get('sort') ?? 'date') });
   }
   const reviewMatch = path.match(/^\/api\/platos\/([\w-]+)\/opiniones(?:\/([1-9]\d*))?$/);
   if (reviewMatch && ((request.method === 'POST' && !reviewMatch[2]) || (request.method === 'PUT' && reviewMatch[2]))) {
@@ -97,7 +126,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     let form: FormData;
     try { form = await (await boundedBody(request, MAX_PHOTO_BYTES + 64 * 1024)).formData(); }
     catch (e) { if (e instanceof HttpError) throw e; throw new HttpError(400, 'No se pudo leer el formulario.'); }
-    const profile = await requireProfile(env, form.get('perfil_id'));
+    const profile = await requireProfile(env, form.get('perfil_id'), dish.restaurante_id);
     const rating = form.get('valoracion');
     if (typeof rating !== 'string' || !/^\d{1,3}$/.test(rating) || +rating < 1 || +rating > 100)
       throw new HttpError(400, 'Elige una puntuación entera entre 1 y 100.');

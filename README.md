@@ -1,6 +1,6 @@
 # Plan Bacon
 
-MVP v0.10 para la mesa de **Restaurante El Volante**. React, TypeScript y Vite en un Worker de Cloudflare; D1 para los datos y R2 Standard para las fotos. Código, migración, carga inicial y herramientas de mantenimiento incluidos. **Publicado en [plan-bacon.plan-bacon.workers.dev](https://plan-bacon.plan-bacon.workers.dev)** (11 de noviembre de 2026).
+MVP v0.10 para las mesas de **Plan Bacon**, con varios restaurantes y **El Volante** como restaurante inicial. React, TypeScript y Vite en un Worker de Cloudflare; D1 para los datos y R2 Standard para las fotos. Código, migraciones, carga inicial y herramientas de mantenimiento incluidos. **Publicado en [plan-bacon.plan-bacon.workers.dev](https://plan-bacon.plan-bacon.workers.dev)** (11 de noviembre de 2026).
 
 ## Continuar desde GitHub u otro ordenador
 
@@ -20,7 +20,7 @@ pnpm setup
 pnpm dev
 ```
 
-Abrir <http://127.0.0.1:5173>. El selector incluye Alexandre, Manoel, Jorge y Gabriel. El catálogo empieza vacío. La selección de perfil se recuerda en la pestaña mediante `sessionStorage`, también al recargar. «Cambiar perfil» vuelve a consultar los perfiles configurados.
+Abrir <http://127.0.0.1:5173>. El selector incluye Alexandre, Manoel, Jorge y Gabriel. Después de elegir perfil aparece la lista de restaurantes, inicialmente solo El Volante, cuyo catálogo local empieza vacío. La selección de perfil se recuerda en la pestaña mediante `sessionStorage`, también al recargar. «Cambiar perfil» vuelve a consultar los perfiles configurados y al elegir uno regresa a la lista de restaurantes.
 
 `pnpm setup` aplica las migraciones de `migrations/` y `scripts/seed.sql`. La migración `0002_multiple_opinions.sql` conserva las opiniones anteriores y elimina el límite de una opinión por perfil y plato. La carga inicial se puede repetir: no borra ni sustituye los datos existentes. El grupo es `plan-bacon`, el restaurante `el-volante`. Los platos y las opiniones no forman parte de la carga inicial.
 
@@ -49,6 +49,7 @@ Para comprobar la compilación servida, parar `pnpm dev` y ejecutar `pnpm previe
 ## Qué incluye
 
 - Perfiles sin autenticación; cualquiera con acceso a la web puede elegir cualquiera y editar su opinión. No se presenta el selector como una protección de identidad.
+- Recorrido perfil → restaurantes → platos. Todos los perfiles del grupo comparten los restaurantes; cada local tiene catálogo, sugerencias y altas propios. Los filtros y el orden se conservan por restaurante durante la sesión de la página. La portada usa la foto de la última opinión publicada en ese local, o un plato decorativo si todavía no hay fotos.
 - Catálogo, búsqueda sin mayúsculas ni acentos de vocales, orden español A–Z y por media; los empates van por nombre y los no valorados al final. El filtro se conserva al ordenar y al volver de una ficha.
 - Catálogo con dos tarjetas por fila en móvil y tres desde 760 px, foto cuadrada protagonista, nombres completos y nota sin sufijo visual. Los platos con media de 90 o más llevan «De lo mejor» y un acento dorado. También se puede ordenar por número de opiniones, con empates por media y nombre.
 - Alta con sugerencias y resolución de altas simultáneas: un conflicto devuelve HTTP 409 y la ficha existente.
@@ -138,6 +139,22 @@ En la documentación consultada el 10 de noviembre de 2026, [R2 Standard](https:
 ## Mantenimiento fuera de la app
 
 Hacer una copia antes de modificar producción y usar explícitamente `--local` o `--remote`. La herramienta se niega a ejecutar sin uno de esos flags. El modo remoto requiere `wrangler.production.json` y las credenciales de Wrangler; no hay endpoints de administración.
+
+### Varios restaurantes
+
+El esquema ya asociaba cada plato a su restaurante: esta actualización **no necesita migraciones ni mover datos**. El Volante conserva sus IDs, platos, opiniones y claves de fotos. No se añaden los locales ficticios de la propuesta. `RESTAURANT_ID` sigue apuntando a `el-volante`: identifica el grupo compartido y el destino de las rutas antiguas; no se cambia al elegir otro restaurante.
+
+La navegación usa `#/restaurantes/ID` y `#/restaurantes/ID/nuevo`. Los enlaces guardados `#/platos/ID` siguen funcionando y la ficha resuelve su restaurante; `#/nuevo` se mantiene como acceso antiguo al alta en El Volante. La API ofrece `GET /api/restaurantes`, `GET /api/restaurantes/ID` y `GET/POST /api/restaurantes/ID/platos`. `/api/platos` sigue limitado a El Volante por compatibilidad. Las rutas de opiniones conservan sus IDs y verifican el restaurante y el grupo antes de leer o escribir.
+
+Para incorporar un restaurante real cuando se solicite, usar mantenimiento (no hay un alta de restaurantes en la interfaz):
+
+```sh
+pnpm maintain --local add-restaurant "Nombre del restaurante"
+# Solo cuando esté autorizado añadirlo a la web compartida:
+pnpm maintain --remote add-restaurant "Nombre del restaurante"
+```
+
+Se crea un restaurante vacío en `plan-bacon`, con un ID nuevo. El comando no es idempotente: ejecutarlo una sola vez y conservar el ID devuelto. Aparece al volver a la lista de restaurantes o recargar. No crea platos ni modifica los demás locales. `rename-dish` también funciona con platos de cualquier restaurante del grupo.
 
 ### Añadir un perfil
 

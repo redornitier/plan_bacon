@@ -4,7 +4,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { build } from 'esbuild';
 import { Miniflare, Log, LogLevel } from 'miniflare';
 import sharp from 'sharp';
-import { addProfileSql, renameDishSql } from '../scripts/maintenance-sql';
+import { addProfileSql, addRestaurantSql, renameDishSql } from '../scripts/maintenance-sql';
 import { normalizeName, MAX_PHOTO_BYTES } from '../shared/domain';
 
 let mf: Miniflare;
@@ -60,6 +60,8 @@ test('CA-01 / CA-06: seed, empty catalog and unrated dish', async () => {
   const config: any = await (await request('/api/config')).json();
   assert.deepEqual(config.perfiles.map((p: any) => p.nombre_visible), ['Alexandre', 'Manoel', 'Jorge', 'Gabriel']);
   assert.equal(config.restaurante.nombre, 'Restaurante El Volante');
+  assert.deepEqual(config.restaurantes, [config.restaurante]);
+  assert.deepEqual(await (await request('/api/restaurantes')).json(), { restaurantes: [{ ...config.restaurante, total_platos: 0, foto_clave: null }] });
   assert.deepEqual(await (await request('/api/platos')).json(), { platos: [] });
   const response = await create('Croquetas de jamón'); assert.equal(response.status, 201);
   dish = (await response.json() as any).plato.id;
@@ -244,4 +246,58 @@ test('Migration preserves existing IDs, photos, dates and scores while removing 
     await assert.rejects(oldDB.exec("INSERT INTO opiniones(plato_id,perfil_id,foto_clave,valoracion,solicitud_id) VALUES ('legacy','alexandre','foto',80,'segunda');"));
     await assert.rejects(oldDB.exec("INSERT INTO opiniones(plato_id,perfil_id,foto_clave,valoracion,solicitud_id) VALUES ('legacy','alexandre','foto',101,'invalida');"));
   } finally { await isolated.dispose(); }
+});
+
+test('Multiple restaurants: scoped catalogs, duplicates, opinions and retries preserve every existing El Volante row', async () => {
+  const beforeDishes = await db.prepare("SELECT * FROM platos WHERE restaurante_id = 'el-volante' ORDER BY id").all();
+  const beforeOpinions = await db.prepare("SELECT o.* FROM opiniones o JOIN platos d ON d.id = o.plato_id WHERE d.restaurante_id = 'el-volante' ORDER BY o.id").all();
+  const beforeCatalog = await (await request('/api/platos')).json();
+  await db.exec(addRestaurantSql("Local de prueba O'Connor", 'second-test').replaceAll('\n', ' '));
+  assert.deepEqual(await (await request('/api/restaurantes/second-test/platos')).json(), { platos: [] });
+  const createSecond = () => request('/api/restaurantes/second-test/platos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: 'Croquetas caseras de jamón', perfil_id: 'alexandre' }) });
+  const added = await createSecond(); assert.equal(added.status, 201);
+  const secondDish = (await added.json() as any).plato;
+  assert.equal(secondDish.restaurante_id, 'second-test'); assert.notEqual(secondDish.id, dish);
+  const duplicate = await createSecond(); assert.equal(duplicate.status, 409); assert.equal((await duplicate.json() as any).plato.id, secondDish.id);
+  const firstForm = form('alexandre', '90', jpeg);
+  const first = await request(`/api/platos/${secondDish.id}/opiniones`, { method: 'POST', body: firstForm }); assert.equal(first.status, 200);
+  const firstOpinion = (await first.json() as any).opinion;
+  assert.equal((await request(`/api/platos/${secondDish.id}/opiniones`, { method: 'POST', body: firstForm })).status, 200);
+  assert.equal((await request(`/api/platos/${dish}/opiniones`, { method: 'POST', body: firstForm })).status, 409);
+  assert.equal((await request(`/api/platos/${secondDish.id}/opiniones`, { method: 'POST', body: form('alexandre', '100', png, 'image/png') })).status, 200);
+  const current = await detail(secondDish.id);
+  assert.equal(current.restaurante.id, 'second-test'); assert.equal(current.plato.total, 2); assert.equal(current.plato.media, 95);
+  const latestPhoto = current.plato.foto_clave;
+  assert.equal((await request(`/api/platos/${secondDish.id}/opiniones/${firstOpinion.id}`, { method: 'PUT', body: form('alexandre', '80') })).status, 200);
+  assert.equal((await detail(secondDish.id)).plato.foto_clave, latestPhoto);
+  assert.equal((await request(`/api/platos/${dish}/opiniones/${firstOpinion.id}`, { method: 'PUT', body: form('alexandre', '80') })).status, 404);
+  const summaries: any = await (await request('/api/restaurantes')).json();
+  const second = summaries.restaurantes.find((r: any) => r.id === 'second-test');
+  assert.equal(second.total_platos, 1); assert.equal(second.foto_clave, latestPhoto);
+  assert.deepEqual((await (await request('/api/restaurantes/second-test/platos')).json() as any).platos.map((d: any) => d.id), [secondDish.id]);
+  assert.deepEqual(await (await request('/api/restaurantes/el-volante/platos')).json(), beforeCatalog);
+  assert.deepEqual(await (await request('/api/platos')).json(), beforeCatalog);
+  assert.deepEqual((await db.prepare("SELECT * FROM platos WHERE restaurante_id = 'el-volante' ORDER BY id").all()).results, beforeDishes.results);
+  assert.deepEqual((await db.prepare("SELECT o.* FROM opiniones o JOIN platos d ON d.id = o.plato_id WHERE d.restaurante_id = 'el-volante' ORDER BY o.id").all()).results, beforeOpinions.results);
+  for (const o of beforeOpinions.results) await photo(o.foto_clave as string);
+  await db.exec(renameDishSql(secondDish.id, 'Otro nombre del segundo local').replaceAll('\n', ' '));
+  assert.equal((await detail(secondDish.id)).plato.nombre, 'Otro nombre del segundo local');
+});
+
+test('Restaurant boundaries: unknown IDs and restaurants outside the configured group cannot be read or written', async () => {
+  await db.exec("INSERT INTO restaurantes(id, grupo_id, nombre) VALUES ('other-restaurant', 'other', 'Otro grupo'); INSERT INTO platos(id, restaurante_id, nombre, nombre_normalizado, creado_por) VALUES ('other-dish', 'other-restaurant', 'Ajeno', 'ajeno', 'other');");
+  const config: any = await (await request('/api/config')).json();
+  assert.ok(config.restaurantes.some((r: any) => r.id === 'second-test'));
+  assert.ok(config.restaurantes.every((r: any) => r.id !== 'other-restaurant'));
+  const restaurants: any = await (await request('/api/restaurantes')).json();
+  assert.ok(restaurants.restaurantes.every((r: any) => r.id !== 'other-restaurant'));
+  for (const id of ['missing', 'other-restaurant']) {
+    assert.equal((await request(`/api/restaurantes/${id}`)).status, 404);
+    assert.equal((await request(`/api/restaurantes/${id}/platos`)).status, 404);
+    assert.equal((await request(`/api/restaurantes/${id}/platos`, { method: 'POST', body: JSON.stringify({ nombre: 'No crear', perfil_id: 'alexandre' }) })).status, 404);
+  }
+  assert.equal((await request('/api/platos/other-dish')).status, 404);
+  assert.equal((await request('/api/platos/other-dish/opiniones', { method: 'POST', body: form('other', '90', jpeg) })).status, 404);
+  assert.equal((await request('/api/platos/other-dish/opiniones/1', { method: 'PUT', body: form('other', '90') })).status, 404);
+  assert.equal((await request('/api/restaurantes/second-test/platos', { method: 'POST', body: JSON.stringify({ nombre: 'No crear', perfil_id: 'other' }) })).status, 400);
 });

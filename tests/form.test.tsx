@@ -78,7 +78,7 @@ test('Dish UI: add another opinion, edit either own opinion and order by date or
     { id: 2, perfil_id: 'alexandre', nombre_visible: 'Alexandre', valoracion: 60, creada_en: '2026-11-11T12:00:00Z' },
     { id: 1, perfil_id: 'alexandre', nombre_visible: 'Alexandre', valoracion: 90, creada_en: '2026-11-10T12:00:00Z' },
   ].map(o => ({ ...o, plato_id: dish.id, foto_clave: 'foto', comentario: null, actualizada_en: o.creada_en }));
-  globalThis.fetch = async () => Response.json({ plato: { ...dish, total: 3, media: 73.333 }, opiniones: opinions });
+  globalThis.fetch = async () => Response.json({ restaurante: { id: 'el-volante', nombre: 'Restaurante El Volante' }, plato: { ...dish, total: 3, media: 73.333 }, opiniones: opinions });
   dom.window.scrollTo = () => {};
   const view = render(<DishDetail id={dish.id} profile={profile} notice="" onSaved={() => {}}/>);
   await waitFor(() => assert.ok(view.getByRole('button', { name: 'Añadir valoración' })));

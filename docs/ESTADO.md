@@ -4,12 +4,14 @@ Actualizado: 15 de noviembre de 2026. Versión de la aplicación: 0.10.0.
 
 ## Punto de partida para otro chat u ordenador
 
-Plan Bacon está publicada en https://plan-bacon.plan-bacon.workers.dev. El restaurante configurado es El Volante y los perfiles iniciales son Alexandre, Manoel, Jorge y Gabriel. El historial de los chats no forma parte del repositorio; este documento resume las decisiones necesarias para continuar.
+Plan Bacon está publicada en https://plan-bacon.plan-bacon.workers.dev. Admite varios restaurantes del mismo grupo; inicialmente solo El Volante, conservando todos sus platos y valoraciones. Los perfiles iniciales son Alexandre, Manoel, Jorge y Gabriel. El historial de los chats no forma parte del repositorio; este documento resume las decisiones necesarias para continuar.
 
 El código usa React/TypeScript/Vite con Cloudflare Workers, D1, R2 Standard y el binding Images. Instalación y mantenimiento detallados en `README.md`; flujo de dos ordenadores en `DOS_ORDENADORES.md`.
 
 ## Decisiones vigentes
 
+- Recorrido perfil → restaurantes → platos. Todos los perfiles comparten los locales del grupo. No añadir los restaurantes ficticios de la propuesta. Las altas futuras de restaurantes reales se hacen mediante `pnpm maintain --local|--remote add-restaurant "Nombre"`, cuando se soliciten; todavía no hay formulario de alta de restaurantes.
+- `RESTAURANT_ID=el-volante` sigue siendo la referencia del grupo y el destino de la API antigua. La API nueva acota catálogos y altas por restaurante; las fichas y opiniones verifican su pertenencia al grupo. No hace falta una migración: las relaciones ya existían en el esquema.
 - Varias opiniones por perfil y plato, cada una con su foto y puntuación; comentario opcional.
 - Edición independiente de cada opinión propia. Nuevas altas con clave de solicitud para que un reintento no duplique la opinión.
 - Media y total calculados con todas las opiniones, sin agrupar por autor.
@@ -26,6 +28,7 @@ El código usa React/TypeScript/Vite con Cloudflare Workers, D1, R2 Standard y e
 - Slider de cocina publicado el 15 de noviembre de 2026; versión Cloudflare `c71af5d8-aa4e-4b37-817b-69f0d9f8a384`. Sin migraciones ni cambios de datos.
 - Ajuste del halo y centrado de la nota publicado el mismo día; versión Cloudflare `6a59b77f-2223-400c-9945-95888267db66`.
 - Catálogo de dos columnas y distintivo desde 90 publicado el mismo día; versión Cloudflare `d78d6d21-f72d-4ca5-b48e-26af7c408360`. Preparación `pnpm deploy:dry` correcta.
+- Varios restaurantes publicado el mismo día; versión Cloudflare `329e86a4-e5dd-456c-b3d7-a2dfac537d85`. Sin migración ni escritura de datos; solo El Volante en la lista.
 - D1 y R2 de producción creados. Migraciones 0001 y 0002 aplicadas. Se cargaron solo restaurante y perfiles, sin trasladar las muestras locales.
 - HTTPS, HTML, JavaScript, restaurante, cuatro perfiles y catálogo inicialmente vacío comprobados al publicar.
 - Aviso de gasto de 1 USD confirmado por el usuario en su navegador; no es un límite de cargos.
@@ -52,6 +55,15 @@ El código usa React/TypeScript/Vite con Cloudflare Workers, D1, R2 Standard y e
 - Estilos aislados en `src/catalog.css`; las opiniones de la ficha mantienen su disposición anterior. Sin nuevas dependencias, migraciones ni cambios de datos.
 - Tipos, compilación y 22 pruebas correctos. Las nuevas pruebas cubren el umbral inclusivo de 90, los platos sin valorar, la búsqueda al cambiar de orden y los desempates por número de opiniones.
 - Compilación revisada con datos y fotos reales mediante consultas de solo lectura: dos columnas a 320/360 px sin desbordamiento, tres a 1024 px, nombres largos completos, distintivos de 90 y 90,5, búsqueda y vuelta desde la ficha conservando filtro/orden. Sin errores de consola.
+
+## Varios restaurantes · 15 de noviembre de 2026
+
+- Integrada la propuesta aprobada. Al elegir perfil se muestra la lista de restaurantes; cada tarjeta lleva nombre, número de platos y una foto real del catálogo (última opinión publicada). Los locales sin fotos usan un plato decorativo. Se conservan la cuadrícula de platos y el distintivo desde 90.
+- Navegación por `#/restaurantes/ID`, alta contextual y vuelta desde la ficha al restaurante correcto. Los filtros se guardan por restaurante mientras la página siga abierta. Se mantienen los enlaces antiguos a platos y la API antigua de El Volante.
+- Sin nuevas migraciones, sin escritura de datos de producción y sin restaurantes ficticios. La semilla sigue creando exclusivamente El Volante y los cuatro perfiles iniciales.
+- Tipos, compilación y 27 pruebas correctos. Se prueba aislamiento de catálogos, nombres duplicados entre restaurantes, grupo ajeno rechazado, opiniones/edición/reintentos, navegación y enlaces antiguos. Una prueba compara todas las filas originales de El Volante y recupera sus fotos tras operar en un segundo local aislado.
+- Revisión local en móvil a 320/360 px: perfil → restaurante → catálogo → alta → vuelta; dos columnas sin desbordamiento y sin errores de consola. `pnpm deploy:dry` correcto y publicación completada.
+- Conservación comprobada en producción antes/después: 21 platos, 27 opiniones y 54 objetos de imagen idénticos (IDs, contenido, fechas, puntuaciones, claves y ETags). SHA-256 de la comprobación: `496ab0e771af6b08741fe98494c0e5ba37ccbfd4764ce3bf21037f488fda7582`. La copia de comprobación queda en `backups/`, excluida de Git. Solo El Volante aparece en la lista publicada.
 
 ## Qué no se sincroniza con Git
 

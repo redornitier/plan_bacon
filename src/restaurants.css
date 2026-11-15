@@ -1,0 +1,31 @@
+.restaurants > .eyebrow { color: var(--muted); margin-bottom: 10px; }
+.restaurants-intro { margin-top: 10px; color: var(--muted); font-size: 14px; }
+.restaurants-count { margin: 28px 0 13px; color: var(--muted); font-size: 12px; }
+.restaurant-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.restaurant-card { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line); border-radius: 15px; overflow: hidden; background: #fffdf8; }
+.restaurant-cover { height: 150px; background: #ece4d5; overflow: hidden; }
+.restaurant-cover img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
+.restaurant-cover.without-photo { display: grid; place-items: center; background: repeating-linear-gradient(90deg, transparent 0 24px, #a83e2907 24px 25px), #ece4d5; }
+.restaurant-cover .plate { height: 75px; margin: 0; }
+.restaurant-copy { flex: 1; padding: 15px 16px 17px; }
+.restaurant-kicker { color: var(--muted); font-size: 10px; letter-spacing: 1.3px; }
+.restaurant-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 7px; }
+.restaurant-title h2 { font-family: 'Playfair Display', Georgia, serif; font-size: 26px; font-weight: 500; line-height: 1.2; letter-spacing: -.5px; overflow-wrap: anywhere; }
+.restaurant-enter { display: grid; place-items: center; width: 29px; height: 29px; flex-shrink: 0; border: 1px solid var(--line); border-radius: 50%; color: var(--rust); }
+.restaurant-total { font-size: 12px; color: var(--muted); }
+.catalog .restaurants-back { min-height: 44px; margin: -12px 0 14px; color: var(--rust); }
+.detail-heading .eyebrow, .narrow > .eyebrow { text-transform: uppercase; overflow-wrap: anywhere; }
+@media (hover: hover) {
+  .restaurant-card:hover .restaurant-cover img { transform: scale(1.04); }
+  .restaurant-card:hover h2 { color: var(--rust); }
+}
+@media (max-width: 600px) {
+  .restaurant-list { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .restaurants h1 { font-size: clamp(32px, 9.5vw, 39px); }
+  .restaurants > .eyebrow { font-size: 10px; letter-spacing: 1.6px; }
+  .restaurants-intro { font-size: 13px; }
+  .restaurants-count { margin-top: 25px; }
+  .restaurant-cover { height: 130px; }
+  .restaurant-copy { padding: 13px 15px 15px; }
+  .restaurant-title h2 { font-size: 25px; }
+}

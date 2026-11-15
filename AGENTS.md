@@ -9,7 +9,8 @@
 
 ## Reglas del producto vigentes
 
-- Un grupo, Restaurante El Volante y perfiles seleccionables sin autenticación.
+- Un grupo con varios restaurantes y perfiles seleccionables sin autenticación. Tras elegir perfil se abre la lista de restaurantes; inicialmente solo El Volante, con todos sus datos originales. No añadir restaurantes ficticios.
+- `RESTAURANT_ID` identifica El Volante como referencia del grupo y destino de la API antigua. Las consultas y altas nuevas se acotan por restaurante; las fichas y opiniones comprueban la pertenencia al grupo.
 - Cada perfil puede publicar tantas valoraciones como quiera por plato. La media cuenta todas las opiniones.
 - Se edita cada opinión por su ID, plato y perfil. Nunca volver al límite de una opinión por persona.
 - La ficha ordena por publicación más reciente o puntuación descendente; los empates de puntuación van por publicación.

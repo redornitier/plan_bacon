@@ -3,7 +3,7 @@ import type { FormEvent, ReactNode } from 'react';
 import { api, ApiError } from './api';
 import { RatingSlider } from './RatingSlider';
 import { charLength, cleanName, filterAndSort, MAX_PHOTO_BYTES, normalizeName, PHOTO_TYPES, photoUrl, sortOpinions } from '../shared/domain';
-import type { Config, Detail, Dish, Opinion, Profile } from '../shared/domain';
+import type { Config, Detail, Dish, Opinion, Profile, Restaurant, RestaurantSummary } from '../shared/domain';
 
 function Icon({ name, size = 20 }: { name: 'arrow' | 'plus' | 'search' | 'camera' | 'image' | 'sort' | 'back' | 'check' | 'star'; size?: number }) {
   const paths = {
@@ -34,6 +34,11 @@ const date = (value: string) => new Intl.DateTimeFormat('es', { day: 'numeric', 
 function go(path = '/') { window.location.hash = path; }
 const subscribe = (fn: () => void) => { window.addEventListener('hashchange', fn); return () => window.removeEventListener('hashchange', fn); };
 const currentRoute = () => window.location.hash.slice(1) || '/';
+const restaurantPath = (id: string) => `/restaurantes/${encodeURIComponent(id)}`;
+const catalogApi = (id: string) => `/api${restaurantPath(id)}/platos`;
+const restaurantName = (name: string) => name.replace(/^Restaurante /i, '');
+type CatalogPreferences = { query: string; sort: string };
+const defaultPreferences: CatalogPreferences = { query: '', sort: 'name' };
 
 function useLoad<T>(url: string, revision = 0) {
   const [data, setData] = useState<T | null>(null);
@@ -55,14 +60,13 @@ export default function App() {
   const config = useLoad<Config>('/api/config');
   const [profileId, setProfileId] = useState(() => { try { return sessionStorage.getItem('plan-bacon-profile') ?? ''; } catch { return ''; } });
   const [choosing, setChoosing] = useState(!profileId);
-  const [query, setQuery] = useState('');
-  const [sort, setSort] = useState('name');
+  const [catalogPreferences, setCatalogPreferences] = useState<Record<string, CatalogPreferences>>({});
   const [notice, setNotice] = useState('');
   const route = useSyncExternalStore(subscribe, currentRoute);
   const heading = useRef<HTMLElement>(null);
   const profile = config.data?.perfiles.find(p => p.id === profileId);
   useEffect(() => { heading.current?.focus(); window.scrollTo(0, 0); }, [route, choosing]);
-  useEffect(() => { if (route === '/') setNotice(''); }, [route]);
+  useEffect(() => { if (!route.startsWith('/platos/')) setNotice(''); }, [route]);
   const choose = (id: string) => {
     setProfileId(id); setChoosing(false); setNotice('');
     try { sessionStorage.setItem('plan-bacon-profile', id); } catch { /* Session-only fallback. */ }
@@ -71,7 +75,14 @@ export default function App() {
   const changeProfile = () => { setChoosing(true); config.retry(); go('/'); };
   const showChooser = choosing || !profile;
   const dishId = route.match(/^\/platos\/([\w-]+)$/)?.[1];
-  const showCatalog = !config.loading && !config.error && !showChooser && route !== '/nuevo' && !dishId;
+  const restaurantRoute = route.match(/^\/restaurantes\/([\w-]+)(\/nuevo)?$/);
+  const restaurantId = restaurantRoute?.[1] ?? (route === '/nuevo' ? config.data?.restaurante.id : undefined);
+  const addingDish = !!restaurantRoute?.[2] || route === '/nuevo';
+  const preferences = catalogPreferences[restaurantId ?? ''] ?? defaultPreferences;
+  const setPreferences = (patch: Partial<CatalogPreferences>) => {
+    if (restaurantId) setCatalogPreferences(current => ({ ...current, [restaurantId]: { ...(current[restaurantId] ?? defaultPreferences), ...patch } }));
+  };
+  const showCatalog = !config.loading && !config.error && !showChooser && !addingDish && !dishId;
   return <>
     <a className="skip-link" href="#main">Saltar al contenido</a>
     <header className={`site-header${showCatalog ? ' catalog-header' : ''}`}><a href="#/" className="brand" aria-label="Plan Bacon, inicio"><span className="brand-mark">b.</span><span>plan bacon<span className="brand-caption">LAS OPINIONES DE NUESTRA MESA</span></span></a>
@@ -80,9 +91,9 @@ export default function App() {
     <main id="main" className={showCatalog ? 'catalog-main' : undefined} tabIndex={-1} ref={heading}>
       {config.loading ? <p className="loading" role="status">Preparando la mesa…</p> : config.error ? <ErrorBox message={config.error} retry={config.retry}/> : config.data && (showChooser ?
         <ProfileChooser profiles={config.data.perfiles} selected={profileId} onChoose={choose}/> :
-        route === '/nuevo' ? <NewDish profile={profile!} initialName={query} onCreated={() => { setQuery(''); setNotice('Plato añadido. Ya puedes valorar tu ración.'); }}/> :
         dishId ? <DishDetail key={`${dishId}:${profileId}`} id={dishId} profile={profile!} notice={notice} onSaved={() => setNotice('Tu valoración está guardada. ¡Gracias por compartirla!')}/> :
-        <Catalog restaurant={config.data.restaurante.nombre} query={query} setQuery={setQuery} sort={sort} setSort={setSort}/>
+        restaurantId ? <RestaurantPage key={restaurantId} id={restaurantId} addingDish={addingDish} profile={profile!} preferences={preferences} setPreferences={setPreferences} onCreated={() => { setPreferences({ query: '' }); setNotice('Plato añadido. Ya puedes valorar tu ración.'); }}/> :
+        <Restaurants/>
       )}
     </main>
     <footer><span>Buen criterio. Mejor compañía.</span><span>Plan Bacon · Nuestra mesa</span></footer>
@@ -91,24 +102,48 @@ export default function App() {
 
 function ProfileChooser({ profiles, selected, onChoose }: { profiles: Profile[]; selected: string; onChoose: (id: string) => void }) {
   const [value, setValue] = useState(selected);
-  return <section className="welcome"><span className="eyebrow">BIENVENIDO A LA MESA</span><h1>¿Qué tal estaba<br/><em>lo de la otra vez?</em></h1><p className="intro">Las fotos, los favoritos y las opiniones del grupo.<br className="desktop-break"/> Todo a mano antes de volver a pedir.</p><Plate/>
+  return <section className="welcome"><span className="eyebrow">PRIMERO, LA COMPAÑÍA</span><h1>¿Quién se sienta<br/><em>hoy a la mesa?</em></h1><p className="intro">Tus sitios, tus platos y las opiniones del grupo.<br className="desktop-break"/> Todo a mano antes de volver a pedir.</p><Plate/>
     <form className="profile-form" onSubmit={e => { e.preventDefault(); if (profiles.some(p => p.id === value)) onChoose(value); }}>
       <label htmlFor="profile">¿Quién se sienta hoy?</label>
       <select id="profile" value={value} onChange={e => setValue(e.target.value)} required><option value="" disabled>Elige tu perfil</option>{profiles.map(p => <option key={p.id} value={p.id}>{p.nombre_visible}</option>)}</select>
-      <button className="primary" disabled={!value}>Entrar a El Volante <Icon name="arrow"/></button>
+      <button className="primary" disabled={!value}>Ver restaurantes <Icon name="arrow"/></button>
       <p className="hint">Sin contraseñas: cualquiera puede elegir cualquier perfil y editar su opinión.</p>
     </form>
   </section>;
 }
 
-export function Catalog({ restaurant, query, setQuery, sort, setSort }: { restaurant: string; query: string; setQuery: (s: string) => void; sort: string; setSort: (s: string) => void }) {
-  const list = useLoad<{ platos: Dish[] }>('/api/platos');
+export function Restaurants() {
+  const list = useLoad<{ restaurantes: RestaurantSummary[] }>('/api/restaurantes');
+  return <section className="restaurants" aria-label="Elegir restaurante">
+    <span className="eyebrow">LAS MESAS DEL GRUPO</span><h1>¿Dónde comemos<span className="title-dot">?</span></h1><p className="restaurants-intro">Nuestros sitios, plato a plato.</p>
+    {list.loading ? <p className="loading" role="status">Preparando las mesas…</p> : list.error ? <ErrorBox message={list.error} retry={list.retry}/> : !list.data?.restaurantes.length ? <Empty title="Una mesa por estrenar">Todavía no hay restaurantes en el grupo.</Empty> : <>
+      <p className="restaurants-count">{list.data.restaurantes.length} {list.data.restaurantes.length === 1 ? 'restaurante' : 'restaurantes'}</p>
+      <div className="restaurant-list">{list.data.restaurantes.map(r => <a className="restaurant-card" href={`#${restaurantPath(r.id)}`} key={r.id} aria-label={`Ver platos de ${restaurantName(r.nombre)}`}>
+        <div className={`restaurant-cover${r.foto_clave ? '' : ' without-photo'}`}>{r.foto_clave ? <img src={photoUrl(r.foto_clave)} alt="" width={800} height={320} loading="lazy" decoding="async"/> : <Plate/>}</div>
+        <div className="restaurant-copy"><span className="restaurant-kicker">RESTAURANTE</span><div className="restaurant-title"><h2>{restaurantName(r.nombre)}</h2><span className="restaurant-enter"><Icon name="arrow" size={16}/></span></div><span className="restaurant-total">{r.total_platos ? `${r.total_platos} ${r.total_platos === 1 ? 'plato' : 'platos'} en nuestra mesa` : 'Todavía sin platos'}</span></div>
+      </a>)}</div>
+    </>}
+    <aside className="catalog-note"><span/>Buena mesa. Buena memoria.<span/></aside>
+  </section>;
+}
+
+function RestaurantPage({ id, addingDish, profile, preferences, setPreferences, onCreated }: { id: string; addingDish: boolean; profile: Profile; preferences: CatalogPreferences; setPreferences: (patch: Partial<CatalogPreferences>) => void; onCreated: () => void }) {
+  const restaurant = useLoad<{ restaurante: Restaurant }>(`/api${restaurantPath(id)}`);
+  if (restaurant.loading) return <p className="loading" role="status">Preparando el restaurante…</p>;
+  if (restaurant.error || !restaurant.data) return <><a className="back-link" href="#/"><Icon name="back"/>Restaurantes</a><ErrorBox message={restaurant.error} retry={restaurant.retry}/></>;
+  return addingDish ? <NewDish restaurant={restaurant.data.restaurante} profile={profile} initialName={preferences.query} onCreated={onCreated}/> : <Catalog restaurant={restaurant.data.restaurante} query={preferences.query} sort={preferences.sort} setQuery={query => setPreferences({ query })} setSort={sort => setPreferences({ sort })}/>;
+}
+
+export function Catalog({ restaurant, query, setQuery, sort, setSort }: { restaurant: Restaurant; query: string; setQuery: (s: string) => void; sort: string; setSort: (s: string) => void }) {
+  const list = useLoad<{ platos: Dish[] }>(catalogApi(restaurant.id));
+  const newDishLink = `#${restaurantPath(restaurant.id)}/nuevo`;
   const dishes = filterAndSort(list.data?.platos ?? [], query, sort);
   return <section className="catalog" aria-label="Platos del restaurante">
-    <div className="catalog-heading"><span className="eyebrow">NUESTRA MESA DE SIEMPRE</span><div className="catalog-title-row"><h1>{restaurant.replace(/^Restaurante /, '')}<span className="title-dot">.</span></h1><a className="catalog-add" href="#/nuevo" aria-label="Añadir plato"><Icon name="plus"/><span>Añadir plato</span></a></div><p>Lo que probamos. Lo que repetimos.</p></div>
+    <a className="back-link restaurants-back" href="#/"><Icon name="back"/>Restaurantes</a>
+    <div className="catalog-heading"><span className="eyebrow">LOS PLATOS DE NUESTRA MESA</span><div className="catalog-title-row"><h1>{restaurantName(restaurant.nombre)}<span className="title-dot">.</span></h1><a className="catalog-add" href={newDishLink} aria-label="Añadir plato"><Icon name="plus"/><span>Añadir plato</span></a></div><p>Lo que probamos. Lo que repetimos.</p></div>
     <div className="catalog-search"><Icon name="search"/><label className="sr-only" htmlFor="search">Buscar plato</label><input id="search" type="search" placeholder="¿Qué te apetece pedir?" value={query} onChange={e => setQuery(e.target.value)}/></div>
     <div className="catalog-toolbar"><span className="catalog-count" role="status">{!list.loading && !list.error && `${dishes.length} ${dishes.length === 1 ? 'plato' : 'platos'}`}</span><div className="catalog-order"><Icon name="sort" size={16}/><label className="sr-only" htmlFor="catalog-sort">Ordenar platos</label><select id="catalog-sort" value={sort} onChange={e => setSort(e.target.value)}><option value="name">De la A a la Z</option><option value="rating">Mejor valorados</option><option value="reviews">Más opiniones</option></select></div></div>
-    {list.loading ? <p className="loading" role="status">Buscando los platos de la mesa…</p> : list.error ? <ErrorBox message={list.error} retry={list.retry}/> : !list.data?.platos.length ? <Empty title="La mesa está por estrenar" action={<a className="primary" href="#/nuevo"><Icon name="plus"/>Añadir el primer plato</a>}>Añade un plato de El Volante y guarda la primera opinión del grupo.</Empty> : !dishes.length ? <Empty title="Todavía no encontramos ese plato" action={<a className="primary" href="#/nuevo"><Icon name="plus"/>Añadir plato</a>}>Prueba con otro nombre o añade «{query}» a nuestra mesa.</Empty> : <div className="catalog-grid">{dishes.map(d => {
+    {list.loading ? <p className="loading" role="status">Buscando los platos de la mesa…</p> : list.error ? <ErrorBox message={list.error} retry={list.retry}/> : !list.data?.platos.length ? <Empty title="La mesa está por estrenar" action={<a className="primary" href={newDishLink}><Icon name="plus"/>Añadir el primer plato</a>}>Añade un plato de {restaurantName(restaurant.nombre)} y guarda la primera opinión del grupo.</Empty> : !dishes.length ? <Empty title="Todavía no encontramos ese plato" action={<a className="primary" href={newDishLink}><Icon name="plus"/>Añadir plato</a>}>Prueba con otro nombre o añade «{query}» a nuestra mesa.</Empty> : <div className="catalog-grid">{dishes.map(d => {
       const outstanding = d.media !== null && d.media >= 90;
       return <a className={`catalog-card${outstanding ? ' is-outstanding' : ''}`} href={`#/platos/${d.id}`} key={d.id}>
         <div className="catalog-photo">{d.foto_clave ? <img src={photoUrl(d.foto_clave, true)} alt={`Ración de ${d.nombre}`} width={400} height={400} loading="lazy" decoding="async"/> : <div className="catalog-placeholder"><Plate small/><span>Foto pendiente</span></div>}{outstanding && <span className="catalog-badge"><Icon name="star" size={13}/>De lo mejor</span>}</div>
@@ -119,8 +154,8 @@ export function Catalog({ restaurant, query, setQuery, sort, setSort }: { restau
   </section>;
 }
 
-function NewDish({ profile, initialName, onCreated }: { profile: Profile; initialName: string; onCreated: () => void }) {
-  const catalog = useLoad<{ platos: Dish[] }>('/api/platos');
+export function NewDish({ restaurant, profile, initialName, onCreated }: { restaurant: Restaurant; profile: Profile; initialName: string; onCreated: () => void }) {
+  const catalog = useLoad<{ platos: Dish[] }>(catalogApi(restaurant.id));
   const [name, setName] = useState(initialName);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -133,12 +168,12 @@ function NewDish({ profile, initialName, onCreated }: { profile: Profile; initia
     if (!cleanName(name) || charLength(cleanName(name)) > 80) { setError('Escribe un nombre de entre 1 y 80 caracteres.'); return; }
     setBusy(true);
     try {
-      const { plato } = await api<{ plato: Dish }>('/api/platos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: name, perfil_id: profile.id }) });
+      const { plato } = await api<{ plato: Dish }>(catalogApi(restaurant.id), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: name, perfil_id: profile.id }) });
       onCreated(); go(`/platos/${plato.id}`);
     } catch (e) { if (e instanceof ApiError && e.status === 409) setConflict(e.data.plato); else setError(message(e)); }
     finally { setBusy(false); }
   }
-  return <section className="narrow"><a className="back-link" href="#/"><Icon name="back"/>Volver a los platos</a><span className="eyebrow">HAY SITIO PARA OTRO</span><h1>Añadir plato</h1><p className="intro">Escríbelo como aparece en la carta.<br/>La foto llegará con tu valoración.</p>
+  return <section className="narrow"><a className="back-link" href={`#${restaurantPath(restaurant.id)}`}><Icon name="back"/>Volver a los platos</a><span className="eyebrow">{restaurant.nombre}</span><h1>Añadir plato</h1><p className="intro">Escríbelo como aparece en la carta.<br/>La foto llegará con tu valoración.</p>
     <form onSubmit={submit}><label htmlFor="dish-name">Nombre del plato</label><input id="dish-name" autoFocus maxLength={80} value={name} disabled={busy} onChange={e => { setName(e.target.value); setConflict(null); setError(''); }} placeholder="Por ejemplo, Croquetas de jamón" required/><div className="field-bottom"><span>Lo añade {profile.nombre_visible}</span><span>{charLength(name)}/80</span></div>
       {exact ? <div className="suggestion exact" role="status"><strong>Este plato ya está en nuestra mesa</strong><p>{exact.nombre}</p><a className="secondary" href={`#/platos/${exact.id}`}>Abrir plato <Icon name="arrow"/></a></div> : matches.length > 0 && <div className="suggestion"><span className="eyebrow">¿TE REFIERES A ALGUNO DE ESTOS?</span>{matches.slice(0, 5).map(d => <a key={d.id} href={`#/platos/${d.id}`}>{d.nombre}<Icon name="arrow"/></a>)}<p className="hint">Si es otro plato, puedes crearlo igualmente.</p></div>}
       {catalog.error && <ErrorBox message="No se pudieron cargar las sugerencias. Al guardar comprobaremos si el plato ya existe." retry={catalog.retry}/>}
@@ -153,12 +188,12 @@ export function DishDetail({ id, profile, notice, onSaved }: { id: string; profi
   const [editing, setEditing] = useState<Opinion | 'new' | null>(null);
   const [opinionSort, setOpinionSort] = useState('date');
   if (detail.loading) return <p className="loading" role="status">Preparando el plato…</p>;
-  if (detail.error || !detail.data) return <><a className="back-link" href="#/">Volver a los platos</a><ErrorBox message={detail.error} retry={detail.retry}/></>;
-  const { plato, opiniones } = detail.data;
+  if (detail.error || !detail.data) return <><a className="back-link" href="#/">Restaurantes</a><ErrorBox message={detail.error} retry={detail.retry}/></>;
+  const { plato, opiniones, restaurante } = detail.data;
   const sortedOpinions = sortOpinions(opiniones, opinionSort);
   return <>
-    <a className="back-link" href="#/"><Icon name="back"/>Volver a los platos</a>
-    <section className="detail-heading"><span className="eyebrow">RESTAURANTE EL VOLANTE</span><h1>{plato.nombre}</h1><div className="detail-meta">{plato.media === null ? <span className="unrated">Sin valorar</span> : <><span className="rating-number">{score(plato.media)}<small>/100</small></span><span>{plato.total} {plato.total === 1 ? 'valoración de la mesa' : 'valoraciones de la mesa'}</span></>}</div></section>
+    <a className="back-link" href={`#${restaurantPath(plato.restaurante_id)}`}><Icon name="back"/>Volver a los platos</a>
+    <section className="detail-heading"><span className="eyebrow">{restaurante.nombre}</span><h1>{plato.nombre}</h1><div className="detail-meta">{plato.media === null ? <span className="unrated">Sin valorar</span> : <><span className="rating-number">{score(plato.media)}<small>/100</small></span><span>{plato.total} {plato.total === 1 ? 'valoración de la mesa' : 'valoraciones de la mesa'}</span></>}</div></section>
     {notice && !editing && <p className="notice" role="status"><Icon name="check"/>{notice}</p>}
     {editing ? <ReviewForm key={editing === 'new' ? 'new' : editing.id} dish={plato} profile={profile} previous={editing === 'new' ? undefined : editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); onSaved(); detail.retry(); }}/> : <div className="review-callout"><div><strong>¿Qué tal estaba esta vez?</strong><p>Puedes guardar una nueva opinión cada vez que lo pruebes.</p></div><button className="primary" onClick={() => setEditing('new')}><Icon name="plus"/>Añadir valoración</button></div>}
     <div className="section-line"><h2>Las opiniones de la mesa</h2><div className="opinion-sort"><label htmlFor="opinion-sort">Ordenar valoraciones</label><select id="opinion-sort" value={opinionSort} onChange={e => setOpinionSort(e.target.value)}><option value="date">Por fecha · más recientes</option><option value="rating">Por puntuación · mayor primero</option></select></div></div>

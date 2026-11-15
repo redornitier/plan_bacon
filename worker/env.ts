@@ -3,5 +3,5 @@ export interface Env {
   PHOTOS: R2Bucket;
   IMAGES: ImagesBinding;
   ASSETS: Fetcher;
-  RESTAURANT_ID: string;
+  RESTAURANT_ID: string; // Existing restaurant anchoring the shared group and legacy API.
 }

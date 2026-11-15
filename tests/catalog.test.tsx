@@ -21,7 +21,7 @@ const dish = (nombre: string, media: number | null, total = 1): Dish => ({
 function CatalogHarness() {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState('name');
-  return <Catalog restaurant="Restaurante El Volante" {...{ query, setQuery, sort, setSort }}/>;
+  return <Catalog restaurant={{ id: 'el-volante', nombre: 'Restaurante El Volante' }} {...{ query, setQuery, sort, setSort }}/>;
 }
 
 test('Catalog: the distinction starts at exactly 90 and unreviewed dishes keep a useful placeholder', async () => {
@@ -40,7 +40,7 @@ test('Catalog: the distinction starts at exactly 90 and unreviewed dishes keep a
       assert.equal(within(card).getByRole('img').getAttribute('src'), `/media/${d.foto_clave}/thumb.jpg`);
     }
   }
-  assert.equal(view.getByRole('link', { name: 'Añadir plato' }).getAttribute('href'), '#/nuevo');
+  assert.equal(view.getByRole('link', { name: 'Añadir plato' }).getAttribute('href'), '#/restaurantes/el-volante/nuevo');
 });
 
 test('Catalog: search stays active when changing sort, including most opinions and empty results', async () => {

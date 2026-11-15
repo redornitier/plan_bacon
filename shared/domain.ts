@@ -15,7 +15,8 @@ export const photoUrl = (key: string, thumb = false) => `/media/${key}/${thumb ?
 
 export interface Profile { id: string; nombre_visible: string }
 export interface Restaurant { id: string; nombre: string }
-export interface Config { restaurante: Restaurant; perfiles: Profile[] }
+export interface RestaurantSummary extends Restaurant { total_platos: number; foto_clave: string | null }
+export interface Config { restaurante: Restaurant; restaurantes: Restaurant[]; perfiles: Profile[] }
 export interface Dish {
   id: string; nombre: string; nombre_normalizado: string; restaurante_id: string;
   media: number | null; total: number; foto_clave: string | null;
@@ -25,7 +26,7 @@ export interface Opinion {
   foto_clave: string; valoracion: number; comentario: string | null;
   creada_en: string; actualizada_en: string;
 }
-export interface Detail { plato: Dish; opiniones: Opinion[] }
+export interface Detail { restaurante: Restaurant; plato: Dish; opiniones: Opinion[] }
 
 const collator = new Intl.Collator('es', { sensitivity: 'base' });
 export function filterAndSort(dishes: Dish[], query: string, sort: string): Dish[] {
