@@ -8,6 +8,8 @@ Object.assign(globalThis, { window: dom.window, document: dom.window.document, H
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
 const { render, fireEvent, waitFor, cleanup } = await import('@testing-library/react');
 const { ReviewForm, DishDetail } = await import('../src/App');
+const { RatingSlider } = await import('../src/RatingSlider');
+const { ratingRepertoires } = await import('../src/ratingCopy');
 const originalFetch = globalThis.fetch;
 afterEach(() => { cleanup(); globalThis.fetch = originalFetch; });
 const dish: Dish = { id: 'dish', nombre: 'Croquetas', nombre_normalizado: 'croquetas', restaurante_id: 'el-volante', media: null, total: 0, foto_clave: null };
@@ -94,4 +96,43 @@ test('Dish UI: add another opinion, edit either own opinion and order by date or
   fireEvent.click(view.getByRole('button', { name: 'Añadir valoración' }));
   assert.equal(view.getByRole('slider').getAttribute('aria-valuetext')?.startsWith('Sin elegir'), true);
   assert.equal(view.queryByText('Conservamos tu foto actual'), null);
+});
+
+test('Rating slider: each gesture gets a different coherent repertoire without choosing a score on touch-down', () => {
+  const chosen: number[] = [];
+  const props = { dishName: 'Croquetas', value: 80, onChange: (value: number) => chosen.push(value), invalid: false, disabled: false };
+  const view = render(<RatingSlider {...props}/>);
+  const slider = view.getByRole('slider');
+  const phrase = () => view.container.querySelector('.bacon-phrase')!.textContent;
+  let previous = phrase();
+  for (let gesture = 0; gesture < 12; gesture++) {
+    fireEvent.pointerDown(slider);
+    const current = phrase();
+    assert.notEqual(current, previous);
+    const repertoire = ratingRepertoires.find(set => set[4] === current)!;
+    view.rerender(<RatingSlider {...props} value={95}/>);
+    assert.equal(phrase(), repertoire[5]);
+    view.rerender(<RatingSlider {...props}/>);
+    assert.equal(phrase(), current);
+    previous = current;
+  }
+  assert.deepEqual(chosen, []);
+  fireEvent.pointerUp(slider);
+  assert.deepEqual(chosen, [80]);
+});
+
+test('Rating slider: keyboard can explicitly choose the midpoint and disabled controls do not change it', () => {
+  const chosen: number[] = [];
+  const props = { dishName: 'Croquetas', value: null, onChange: (value: number) => chosen.push(value), invalid: true, disabled: false };
+  const view = render(<RatingSlider {...props}/>);
+  const slider = view.getByRole('slider');
+  assert.equal(slider.getAttribute('aria-invalid'), 'true');
+  assert.match(slider.getAttribute('aria-valuetext')!, /^Sin elegir/);
+  assert.equal(view.container.querySelector('output')!.textContent, '—');
+  fireEvent.keyDown(slider, { key: 'Enter' });
+  assert.deepEqual(chosen, [50]);
+  view.rerender(<RatingSlider {...props} disabled/>);
+  fireEvent.keyDown(slider, { key: ' ' });
+  fireEvent.pointerUp(slider);
+  assert.deepEqual(chosen, [50]);
 });

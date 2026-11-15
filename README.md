@@ -52,6 +52,7 @@ Para comprobar la compilación servida, parar `pnpm dev` y ejecutar `pnpm previe
 - Catálogo, búsqueda sin mayúsculas ni acentos de vocales, orden español A–Z y por media; los empates van por nombre y los no valorados al final. El filtro se conserva al ordenar y al volver de una ficha.
 - Alta con sugerencias y resolución de altas simultáneas: un conflicto devuelve HTTP 409 y la ficha existente.
 - Varias opiniones por perfil y plato, cada una con foto obligatoria, deslizador 1–100 con selección explícita, comentario opcional de hasta 500 caracteres, edición y reintento.
+- Slider protagonista con plato, salsa, vapor y brasas; cinco repertorios de frases aleatorias que se mantienen durante cada gesto. Teclado, movimiento reducido y alternativa sin efectos gráficos. Una nueva opinión sigue empezando sin nota elegida.
 - Fichas con selector de orden por fecha de publicación (más recientes primero, por defecto) o puntuación (mayor primero, con empates por fecha); una edición cambia `actualizada_en` y conserva `creada_en`. El identificador incremental resuelve publicaciones en el mismo milisegundo. La miniatura corresponde a la última opinión publicada, aunque se edite una anterior.
 - Estados de catálogo vacío, búsqueda sin resultados, plato sin opiniones, carga y error. Controles de cámara y galería separados; diseño revisado a 360 px.
 

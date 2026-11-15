@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { api, ApiError } from './api';
+import { RatingSlider } from './RatingSlider';
 import { charLength, cleanName, filterAndSort, MAX_PHOTO_BYTES, normalizeName, PHOTO_TYPES, photoUrl, sortOpinions } from '../shared/domain';
 import type { Config, Detail, Dish, Opinion, Profile } from '../shared/domain';
 
@@ -201,15 +202,12 @@ export function ReviewForm({ dish, profile, previous, onCancel, onSaved }: { dis
   return <form className="review-form" onSubmit={submit} noValidate>
     <div className="form-heading"><h2>{previous ? 'Actualizar mi opinión' : 'Tu ración, tu opinión'}</h2><button className="text-button" type="button" disabled={busy} onClick={onCancel}>Cancelar</button></div>
     <fieldset disabled={busy} className="review-fields"><legend className="sr-only">Valoración de {dish.nombre}</legend>
-      <label>1. Una foto de tu ración <span className="required">Obligatoria</span></label>
+      <RatingSlider dishName={dish.nombre} value={rating} onChange={value => { setRating(value); setMissingRating(false); }} invalid={missingRating} disabled={busy}/>
+      <label>2. Una foto de tu ración <span className="required">Obligatoria</span></label>
       {image && <div className="photo-preview"><img src={image} alt="Foto de tu ración"/><span>{file ? 'Nueva foto seleccionada' : 'Conservamos tu foto actual'}</span></div>}
       <div className="photo-actions"><label className="secondary file-button" htmlFor="camera"><Icon name="camera"/>Hacer foto<input id="camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => { selectFile(e.target.files?.[0]); e.target.value = ''; }}/></label><label className="secondary file-button" htmlFor="gallery"><Icon name="image"/>Elegir de galería<input id="gallery" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { selectFile(e.target.files?.[0]); e.target.value = ''; }}/></label></div>
       <p className="hint">JPEG, PNG o WebP · Hasta 10 MB. {previous && 'Si no eliges otra, se conserva la que ya tienes.'}</p>
       {missingPhoto && <p className="field-error" role="alert">Añade una foto de tu ración.</p>}
-      <div className="score-label"><label htmlFor="rating">2. ¿Qué tal estaba?</label><output htmlFor="rating" aria-live="polite">{rating ?? '—'}<small>/100</small></output></div>
-      <input id="rating" type="range" min="1" max="100" step="1" value={rating ?? 50} aria-valuetext={rating === null ? 'Sin elegir. Selecciona una puntuación del 1 al 100.' : `${rating} de 100`} aria-invalid={missingRating} aria-describedby="rating-help" onChange={e => { setRating(+e.target.value); setMissingRating(false); }} onPointerUp={e => { setRating(+e.currentTarget.value); setMissingRating(false); }} onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setRating(+e.currentTarget.value); setMissingRating(false); } }}/>
-      <div className="range-labels"><span>1 · No repetiría</span><span>100 · Para volver</span></div><p id="rating-help" className="hint">{rating === null ? 'Mueve o toca el deslizador para elegir tu puntuación.' : `Has elegido ${rating} de 100.`}</p>
-      {missingRating && <p className="field-error" role="alert">Elige una puntuación entre 1 y 100.</p>}
       <label htmlFor="comment">3. Una pista para la próxima <span className="optional">Opcional</span></label><textarea id="comment" rows={3} maxLength={500} value={comment} onChange={e => setComment(e.target.value)} placeholder="El punto, la salsa, la ración… ¿con qué te quedas?"/><div className="field-bottom"><span>Con tus palabras, sin complicaciones.</span><span>{charLength(comment)}/500</span></div>
     </fieldset>
     {error && <ErrorBox message={error}/>}
